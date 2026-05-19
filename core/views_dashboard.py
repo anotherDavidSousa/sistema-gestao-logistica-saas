@@ -5,7 +5,9 @@ URLs registradas em filial16/urls.py (antes do path admin/).
 import logging
 from datetime import date, timedelta, datetime
 
+import json
 import requests as http_requests
+from .locais_fixos import LOCAIS_FIXOS
 
 from django.conf import settings
 from django.contrib.admin.models import LogEntry, ADDITION, CHANGE, DELETION
@@ -175,6 +177,7 @@ def mapa_view(request):
     return render(request, 'admin/mapa.html', {
         'title': 'Mapa de Frota',
         'has_permission': True,
+        'locais_fixos_json': json.dumps(LOCAIS_FIXOS, ensure_ascii=False),
     })
 
 

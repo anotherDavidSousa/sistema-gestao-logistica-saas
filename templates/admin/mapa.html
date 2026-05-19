@@ -267,6 +267,10 @@
 {% endblock %}
 
 {% block content %}
+
+  <script>
+    var LOCAIS_FIXOS = {{ locais_fixos_json|safe }};
+  </script>
 <div style="padding: 0 4px;">
 
   {# Breadcrumb-style header #}
@@ -287,6 +291,16 @@
       <i class="fas fa-city"></i> Gerenciar Cidades
     </a>
   </div>
+
+
+  {# ── Cards de locais fixos ─────────────────────────────────────────────── #}
+  {% if locais_fixos_json != '[]' %}
+  <div id="f16-locais-cards" style="
+    display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px;
+  ">
+    {# preenchido pelo JS com base em locais_fixos_json #}
+  </div>
+  {% endif %}
 
   {# Mapa + sidebar #}
   <div id="mapa-container" style="position:relative;">
@@ -651,6 +665,7 @@ function loadData() {
 
     renderVeiculos(veiculosData);
     renderCidades(cidadesData);
+    atualizaCardsLocais(veiculosData);
 
     const ligados = veiculosData.filter(v => v.ignicao === 1 || v.ignicao === true).length;
     document.getElementById('sb-on').textContent  = ligados;
@@ -701,6 +716,70 @@ window.focusVeiculo   = focusVeiculo;
 window.focusCidade    = focusCidade;
 window.toggleCidade   = toggleCidade;
 
+/* ── Locais fixos — point-in-polygon + cards ──────────────────────────────── */
+
+function pontoDentroPoligono(lat, lng, poligono) {
+  var inside = false;
+  for (var i = 0, j = poligono.length - 1; i < poligono.length; j = i++) {
+    var xi = poligono[i][0], yi = poligono[i][1];
+    var xj = poligono[j][0], yj = poligono[j][1];
+    var intersect = ((yi > lng) !== (yj > lng)) &&
+                    (lat < (xj - xi) * (lng - yi) / (yj - yi) + xi);
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
+
+function criaCardsLocais() {
+  var container = document.getElementById('f16-locais-cards');
+  if (!container || !LOCAIS_FIXOS || !LOCAIS_FIXOS.length) return;
+  container.innerHTML = LOCAIS_FIXOS.map(function(local) {
+    return '<div id="card-local-' + local.id + '" style="' +
+      'background:var(--f16-card-bg,#fff);border:1px solid var(--f16-border,#e5e7eb);' +
+      'border-radius:10px;padding:12px 16px;min-width:160px;flex:1;max-width:220px;' +
+      'border-left:4px solid ' + local.cor + ';">' +
+      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">' +
+      '<i class="' + (local.icone || 'fas fa-map-marker-alt') + '" style="color:' + local.cor + ';font-size:16px;"></i>' +
+      '<span style="font-size:12px;font-weight:700;color:var(--f16-text,#111827);line-height:1.2;">' + local.nome + '</span>' +
+      '</div>' +
+      '<div style="display:flex;align-items:baseline;gap:4px;">' +
+      '<span id="card-local-' + local.id + '-count" style="font-size:28px;font-weight:800;color:' + local.cor + ';">-</span>' +
+      '<span style="font-size:11px;color:var(--f16-text-muted,#6b7280);">veiculos</span>' +
+      '</div></div>';
+  }).join('');
+  LOCAIS_FIXOS.forEach(function(local) {
+    if (!local.poligono || !local.poligono.length) return;
+    L.polygon(local.poligono, {
+      color: local.cor, fillColor: local.cor,
+      fillOpacity: 0.12, weight: 2, dashArray: '6 4',
+    }).bindTooltip(local.nome, { permanent: false, direction: 'center' }).addTo(lmap);
+  });
+}
+
+function atualizaCardsLocais(veiculos) {
+  if (!LOCAIS_FIXOS || !LOCAIS_FIXOS.length) return;
+  LOCAIS_FIXOS.forEach(function(local) {
+    if (!local.poligono || !local.poligono.length) return;
+    var count = 0;
+    veiculos.forEach(function(v) {
+      var lat = v.lat !== undefined ? v.lat : v.latitude;
+      var lng = v.lng !== undefined ? v.lng : v.longitude;
+      if (lat && lng && pontoDentroPoligono(lat, lng, local.poligono)) count++;
+    });
+    var el = document.getElementById('card-local-' + local.id + '-count');
+    if (el) el.textContent = count;
+  });
+}
+
+window.f16MapRefresh = function() { loadData(); };
+
+window.f16ToggleSidebar = function() {
+  var sb = document.getElementById('mapa-sidebar');
+  if (sb) sb.classList.toggle('hidden');
+  if (lmap) setTimeout(function() { lmap.invalidateSize(); }, 300);
+};
+
+  document.addEventListener('DOMContentLoaded', function() { criaCardsLocais(); });
 })();
 </script>
 {% endblock %}

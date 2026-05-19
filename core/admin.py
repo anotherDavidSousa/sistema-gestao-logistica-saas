@@ -3,6 +3,7 @@ from django.contrib import admin
 from django.contrib.admin.models import LogEntry
 from django.contrib.admin.widgets import RelatedFieldWidgetWrapper
 from django.db.models import Q, Case, When, Value, IntegerField, F, CharField
+from django.utils.html import format_html
 from .models import (
     Proprietario,
     Gestor,
@@ -25,7 +26,7 @@ _UFS_BR = {
 }
 
 
-# ── Inlines de documentos ─────────────────────────────────────────────────────────
+# ── Inlines de documentos ─────────────────────────────────────────────────────
 
 class ProprietarioDocumentoInline(admin.TabularInline):
     model = ProprietarioDocumento
@@ -47,7 +48,7 @@ class MotoristaDocumentoInline(admin.TabularInline):
     extra = 1
 
 
-# ── Helpers de ordenacao ──────────────────────────────────────────────────────────
+# ── Helpers de ordenacao ──────────────────────────────────────────────────────
 
 def _cavalos_queryset_ordenado(queryset, filtrar_apenas_com_carreta=False):
     qs = queryset
@@ -91,7 +92,7 @@ def _cavalos_queryset_ordenado(queryset, filtrar_apenas_com_carreta=False):
     )
 
 
-# ── Form customizado do Cavalo (adiciona campo motorista) ─────────────────────────────────────
+# ── Form customizado do Cavalo (adiciona campo motorista) ─────────────────────
 
 class CavaloAdminForm(forms.ModelForm):
     motorista = forms.ModelChoiceField(
@@ -113,7 +114,7 @@ class CavaloAdminForm(forms.ModelForm):
                 pass
 
 
-# ── Proprietario ────────────────────────────────────────────────────────────────────────────
+# ── Proprietario ──────────────────────────────────────────────────────────────
 
 @admin.register(Proprietario)
 class ProprietarioAdmin(admin.ModelAdmin):
@@ -122,14 +123,14 @@ class ProprietarioAdmin(admin.ModelAdmin):
     inlines        = [ProprietarioDocumentoInline]
 
 
-# ── Gestor ────────────────────────────────────────────────────────────────────────────────
+# ── Gestor ────────────────────────────────────────────────────────────────────
 
 @admin.register(Gestor)
 class GestorAdmin(admin.ModelAdmin):
     list_display = ("nome", "meta_faturamento")
 
 
-# ── Cavalo ─────────────────────────────────────────────────────────────────────────────────
+# ── Cavalo ────────────────────────────────────────────────────────────────────
 
 class _MotoristaRel:
     """Objeto fake de relacao para o RelatedFieldWidgetWrapper apontar para Motorista."""
@@ -196,7 +197,7 @@ class CavaloAdmin(admin.ModelAdmin):
             novo.save()
 
 
-# ── Carreta ────────────────────────────────────────────────────────────────────────────────
+# ── Carreta ───────────────────────────────────────────────────────────────────
 
 @admin.register(Carreta)
 class CarretaAdmin(admin.ModelAdmin):
@@ -214,7 +215,7 @@ class CarretaAdmin(admin.ModelAdmin):
         return super().get_search_results(request, queryset, normalized)
 
 
-# ── Motorista ─────────────────────────────────────────────────────────────────────────────────
+# ── Motorista ─────────────────────────────────────────────────────────────────
 
 @admin.register(Motorista)
 class MotoristaAdmin(admin.ModelAdmin):
@@ -228,7 +229,7 @@ class MotoristaAdmin(admin.ModelAdmin):
         return super().get_inline_instances(request, obj)
 
 
-# ── LogCarreta ────────────────────────────────────────────────────────────────────────────────
+# ── LogCarreta ────────────────────────────────────────────────────────────────
 
 @admin.register(LogCarreta)
 class LogCarretaAdmin(admin.ModelAdmin):
@@ -237,35 +238,125 @@ class LogCarretaAdmin(admin.ModelAdmin):
     date_hierarchy = "data_hora"
 
 
-# ── HistoricoGestor ─────────────────────────────────────────────────────────────────────────────
+# ── HistoricoGestor ───────────────────────────────────────────────────────────
 
 @admin.register(HistoricoGestor)
 class HistoricoGestorAdmin(admin.ModelAdmin):
     list_display = ("gestor", "cavalo", "data_inicio", "data_fim")
 
 
-# ── CidadeEntrega ─────────────────────────────────────────────────────────────────────────────
+# ── CidadeEntrega — widget de cor + campos individuais por ponta ──────────────
+
+class _ColorPickerWidget(forms.TextInput):
+    """Input type=color nativo do browser — exibe seletor visual de cor."""
+    input_type = 'color'
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.attrs.update({
+            'style': 'width:56px;height:36px;padding:2px 4px;border:1px solid #ccc;'
+                     'border-radius:6px;cursor:pointer;vertical-align:middle',
+        })
+
+
+class _CidadeEntregaForm(forms.ModelForm):
+    """
+    Formulario plano para CidadeEntrega.
+    Substitui o campo JSON poligono por 4 pares de lat/lng individuais,
+    mais intuitivos para o usuario.
+    """
+
+    lat1 = forms.FloatField(
+        label='Ponta 1 — Latitude', required=False,
+        help_text='Exemplo: -19.4731',
+        widget=forms.NumberInput(attrs={'step': 'any', 'placeholder': '-19.4731'}),
+    )
+    lng1 = forms.FloatField(
+        label='Ponta 1 — Longitude', required=False,
+        widget=forms.NumberInput(attrs={'step': 'any', 'placeholder': '-42.5361'}),
+    )
+    lat2 = forms.FloatField(
+        label='Ponta 2 — Latitude', required=False,
+        widget=forms.NumberInput(attrs={'step': 'any', 'placeholder': '-19.4731'}),
+    )
+    lng2 = forms.FloatField(
+        label='Ponta 2 — Longitude', required=False,
+        widget=forms.NumberInput(attrs={'step': 'any', 'placeholder': '-42.5361'}),
+    )
+    lat3 = forms.FloatField(
+        label='Ponta 3 — Latitude', required=False,
+        widget=forms.NumberInput(attrs={'step': 'any', 'placeholder': '-19.4731'}),
+    )
+    lng3 = forms.FloatField(
+        label='Ponta 3 — Longitude', required=False,
+        widget=forms.NumberInput(attrs={'step': 'any', 'placeholder': '-42.5361'}),
+    )
+    lat4 = forms.FloatField(
+        label='Ponta 4 — Latitude', required=False,
+        widget=forms.NumberInput(attrs={'step': 'any', 'placeholder': '-19.4731'}),
+    )
+    lng4 = forms.FloatField(
+        label='Ponta 4 — Longitude', required=False,
+        widget=forms.NumberInput(attrs={'step': 'any', 'placeholder': '-42.5361'}),
+    )
+
+    class Meta:
+        model  = CidadeEntrega
+        fields = ('nome', 'cor', 'ativa_semana')
+        widgets = {'cor': _ColorPickerWidget()}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Pre-popula os campos individuais com os dados do poligono existente
+        if self.instance and self.instance.pk and self.instance.poligono:
+            for i, ponto in enumerate(self.instance.poligono[:4], start=1):
+                if len(ponto) >= 2:
+                    self.fields[f'lat{i}'].initial = ponto[0]
+                    self.fields[f'lng{i}'].initial = ponto[1]
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        pontos = []
+        for i in range(1, 5):
+            lat = self.cleaned_data.get(f'lat{i}')
+            lng = self.cleaned_data.get(f'lng{i}')
+            if lat is not None and lng is not None:
+                pontos.append([lat, lng])
+        instance.poligono = pontos
+        if commit:
+            instance.save()
+        return instance
+
 
 @admin.register(CidadeEntrega)
 class CidadeEntregaAdmin(admin.ModelAdmin):
-    list_display  = ("nome", "cor", "ativa_semana", "atualizado_em")
+    form          = _CidadeEntregaForm
+    list_display  = ("nome", "cor_preview", "ativa_semana", "atualizado_em")
     list_filter   = ("ativa_semana",)
     search_fields = ("nome",)
     list_editable = ("ativa_semana",)
     ordering      = ("nome",)
-    fieldsets = (
-        (None, {
-            "fields": ("nome", "cor", "ativa_semana"),
-        }),
-        ("Poligono do mapa", {
-            "fields": ("poligono",),
-            "description": "Lista de pares [[lat, lng], ...] definindo os vertices da zona.",
-            "classes": ("collapse",),
-        }),
+
+    # Tudo em uma pagina so — sem fieldsets/abas
+    fields = (
+        "nome", "cor", "ativa_semana",
+        "lat1", "lng1",
+        "lat2", "lng2",
+        "lat3", "lng3",
+        "lat4", "lng4",
     )
 
+    def cor_preview(self, obj):
+        return format_html(
+            '<span style="display:inline-block;width:22px;height:22px;'
+            'background:{};border:1px solid #ccc;border-radius:4px;'
+            'vertical-align:middle;margin-right:6px"></span>{}',
+            obj.cor, obj.cor,
+        )
+    cor_preview.short_description = "Cor"
 
-# ── LogEntry (historico de acoes do admin) ──────────────────────────────────────────────────────────────────────
+
+# ── LogEntry (historico de acoes do admin) ────────────────────────────────────
 
 @admin.register(LogEntry)
 class LogEntryAdmin(admin.ModelAdmin):
