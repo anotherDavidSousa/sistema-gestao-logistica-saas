@@ -1,0 +1,15 @@
+services:
+  inoprime-api:
+    build: .
+    container_name: filial16-inoprime
+    restart: always
+    expose:
+      - "8001"
+    env_file:
+      - .env
+    networks:
+      - shared-network
+
+networks:
+  shared-network:
+    external: true

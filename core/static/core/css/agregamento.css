@@ -1,0 +1,245 @@
+/* Agregamento - tema Filial16 (variáveis CSS) */
+
+/* Formulários */
+.core-form .form-group { margin-bottom: 1rem; }
+.core-form label { display: block; font-weight: 600; margin-bottom: 0.35rem; color: var(--text-primary); }
+.core-form input[type="text"],
+.core-form input[type="number"],
+.core-form input[type="date"],
+.core-form input[type="file"],
+.core-form select,
+.core-form textarea {
+  width: 100%;
+  max-width: 400px;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font: inherit;
+}
+.core-form textarea { min-height: 100px; resize: vertical; }
+.core-form input:focus,
+.core-form select:focus,
+.core-form textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-muted);
+}
+.core-form .form-text { font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.25rem; }
+.core-form .form-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-top: 1.25rem; }
+
+/* Botões alinhados ao tema */
+.btn-core { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; border-radius: 8px; font-weight: 600; text-decoration: none; border: none; cursor: pointer; font: inherit; }
+.btn-core-primary { background: var(--accent); color: #fff; }
+.btn-core-primary:hover { background: var(--accent-hover); color: #fff; text-decoration: none; }
+.btn-core-secondary { background: var(--border); color: var(--text-primary); }
+.btn-core-secondary:hover { background: var(--text-secondary); color: var(--bg-card); text-decoration: none; }
+
+/* Tabelas e DataTables - tema Filial16 */
+.core-table-wrap { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin-bottom: 1rem; }
+.core-table-wrap .dataTables_wrapper { padding: 1rem; color: var(--text-primary); }
+.core-table-wrap table.dataTable { width: 100% !important; border-collapse: collapse; }
+.core-table-wrap table.dataTable thead th { background: var(--bg-header); color: var(--text-on-header); padding: 0.25rem 0.5rem; text-align: left; font-weight: 600; border: none; font-size: 0.75rem; }
+.core-table-wrap table.dataTable tbody td { padding: 0.25rem 0.5rem; border-bottom: 1px solid var(--border); color: var(--text-primary); font-size: 0.75rem; }
+.core-table-wrap table.dataTable tbody tr:hover { background: var(--accent-muted); }
+.core-table-wrap .dataTables_filter input { background: var(--bg-card); border: 1px solid var(--border); color: var(--text-primary); border-radius: 6px; padding: 0.4rem 0.6rem; }
+.core-table-wrap .dataTables_length select { background: var(--bg-card); border: 1px solid var(--border); color: var(--text-primary); border-radius: 6px; padding: 0.25rem 0.5rem; }
+.core-table-wrap .dataTables_info,
+.core-table-wrap .dataTables_paginate { color: var(--text-secondary); font-size: 0.9rem; }
+.core-table-wrap .dataTables_paginate .paginate_button { background: var(--border) !important; color: var(--text-primary) !important; border: none !important; border-radius: 6px !important; margin: 0 2px; padding: 0.35rem 0.75rem !important; }
+.core-table-wrap .dataTables_paginate .paginate_button:hover { background: var(--accent-muted) !important; color: var(--accent) !important; }
+.core-table-wrap .dataTables_paginate .paginate_button.current { background: var(--accent) !important; color: #fff !important; }
+.core-table-wrap .dataTables_paginate .paginate_button.disabled { opacity: 0.5; cursor: default; }
+
+/* Tabela simples (sem DataTables) */
+.core-table { width: 100%; border-collapse: collapse; }
+.core-table thead th { background: var(--bg-header); color: var(--text-on-header); padding: 0.25rem 0.5rem; text-align: left; font-weight: 600; font-size: 0.75rem; }
+.core-table tbody td { padding: 0.25rem 0.5rem; border-bottom: 1px solid var(--border); font-size: 0.75rem; }
+.core-table tbody tr:hover { background: var(--accent-muted); }
+
+/* Badges */
+.badge-core { display: inline-block; padding: 0.2rem 0.5rem; border-radius: 6px; font-size: 0.8rem; font-weight: 600; }
+.badge-core-success { background: rgba(5, 150, 105, 0.2); color: var(--success); }
+.badge-core-warning { background: var(--accent-muted); color: var(--accent); }
+.badge-core-info { background: rgba(59, 130, 246, 0.2); color: #3b82f6; }
+.badge-core-muted { background: var(--border); color: var(--text-secondary); }
+
+/* Filtros em linha */
+.core-filters { display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-end; margin-bottom: 1rem; }
+.core-filters label { font-size: 0.85rem; font-weight: 600; margin-bottom: 0.25rem; }
+.core-filters input,
+.core-filters select { padding: 0.4rem 0.6rem; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-card); color: var(--text-primary); }
+
+/* Paginação simples */
+.pagination-core { display: flex; align-items: center; justify-content: center; gap: 0.5rem; flex-wrap: wrap; margin-top: 1rem; }
+.pagination-core a,
+.pagination-core span { padding: 0.4rem 0.75rem; border-radius: 6px; background: var(--border); color: var(--text-primary); text-decoration: none; font-size: 0.9rem; }
+.pagination-core a:hover { background: var(--accent-muted); color: var(--accent); }
+.pagination-core .disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* Páginas de detalhe (cavalo / carreta) - layout hero + grid + documentos */
+.detail-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+.detail-hero-left { flex: 1; min-width: 200px; }
+.detail-hero-icon {
+  width: 48px;
+  height: 48px;
+  color: var(--accent);
+  margin-bottom: 0.75rem;
+}
+.detail-hero-left h1 { font-size: 1.75rem; font-weight: 700; margin: 0 0 0.25rem 0; }
+.detail-hero-left .description { color: var(--text-secondary); font-size: 0.95rem; margin: 0 0 1rem 0; }
+.detail-hero-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+.detail-hero-right { flex-shrink: 0; width: 280px; max-width: 100%; }
+.detail-hero-right img {
+  width: 100%; height: auto; max-height: 200px;
+  object-fit: contain; border-radius: 10px; background: var(--bg-page);
+}
+.detail-hero-placeholder {
+  height: 160px; background: var(--bg-page); border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-secondary); font-size: 0.9rem;
+}
+.detail-row {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+  align-items: start;
+}
+@media (max-width: 900px) { .detail-row { grid-template-columns: 1fr; } }
+.detail-info-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+@media (max-width: 600px) { .detail-info-grid { grid-template-columns: repeat(2, 1fr); } }
+.detail-info-item {
+  background: var(--bg-page);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+.detail-info-item .icon-wrap {
+  flex-shrink: 0;
+  width: 36px; height: 36px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--accent-muted); color: var(--accent);
+  border-radius: 8px;
+}
+.detail-info-item .icon-wrap svg { width: 20px; height: 20px; }
+.detail-info-item .label { font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.2rem; }
+.detail-info-item .value { font-size: 0.9rem; font-weight: 500; color: var(--text-primary); }
+.detail-info-item .value a { color: var(--accent); text-decoration: none; }
+.detail-info-item .value a:hover { text-decoration: underline; }
+.detail-docs-panel .panel-title { margin-bottom: 1rem; }
+.detail-doc-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: var(--bg-page);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 0.75rem;
+}
+.detail-doc-item:last-child { margin-bottom: 0; }
+.detail-doc-item .doc-info { display: flex; align-items: center; gap: 0.75rem; min-width: 0; }
+.detail-doc-item .doc-info .icon-doc {
+  flex-shrink: 0; width: 36px; height: 36px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--accent-muted); color: var(--accent); border-radius: 8px;
+}
+.detail-doc-item .doc-info .icon-doc svg { width: 20px; height: 20px; }
+.detail-doc-item .doc-title { font-weight: 600; font-size: 0.9rem; }
+.detail-doc-item .doc-status { font-size: 0.8rem; color: var(--text-secondary); }
+.detail-doc-item .doc-status.status-ok { color: var(--success); }
+.detail-doc-item .doc-actions { display: flex; gap: 0.5rem; flex-shrink: 0; }
+.detail-doc-item .btn-doc {
+  display: inline-flex; align-items: center; gap: 0.35rem;
+  padding: 0.4rem 0.75rem; border-radius: 8px; font-size: 0.85rem; font-weight: 500;
+  text-decoration: none; border: 1px solid var(--accent);
+  background: var(--bg-card); color: var(--accent); cursor: pointer;
+}
+.detail-doc-item .btn-doc:hover {
+  background: var(--accent-muted); color: var(--accent); text-decoration: none;
+}
+.detail-doc-item .btn-doc-remover {
+  border-color: #c53030; color: #c53030; background: var(--bg-card);
+}
+.detail-doc-item .btn-doc-remover:hover {
+  background: #feb2b2; color: #742a2a;
+}
+
+/* Placa Mercosul – molde (perfil motorista e onde mais usar) */
+.placa-mercosul-wrap {
+  display: inline-block;
+  text-decoration: none;
+  color: inherit;
+}
+.placa-mercosul-wrap:hover {
+  text-decoration: none;
+}
+.placa-mercosul {
+  display: inline-flex;
+  flex-direction: column;
+  width: 120px;
+  border: 2px solid #1a1a1a;
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+  background: #fff;
+}
+.placa-mercosul__top {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 6px;
+  background: linear-gradient(180deg, #002776 0%, #001a52 100%);
+  color: #fff;
+  font-size: 0.48rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  min-height: 14px;
+}
+.placa-mercosul__left {
+  flex-shrink: 0;
+}
+.placa-mercosul__center {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.52rem;
+}
+.placa-mercosul__body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 6px 6px;
+  background: linear-gradient(180deg, #e8e8e8 0%, #d0d0d0 100%);
+  color: #000;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+.placa-mercosul-wrap:hover .placa-mercosul {
+  filter: brightness(0.97);
+}

@@ -1,0 +1,879 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+
+
+{% block extrahead %}
+{{ block.super }}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+/* ── Dashboard Layout ──────────────────────────────────────────────────── */
+#f16-dashboard {
+  padding: 20px 24px;
+  font-family: inherit;
+}
+
+/* Filtro de data */
+.f16-date-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+.f16-date-bar label {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--f16-muted, #6b7280);
+}
+.f16-date-input {
+  border: 1px solid var(--f16-border, hsl(220, 13%, 91%));
+  border-radius: 7px;
+  padding: 6px 12px;
+  font-size: 13px;
+  background: var(--f16-card, #fff);
+  color: var(--f16-text, #111827);
+  outline: none;
+  cursor: pointer;
+}
+.f16-date-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,.2); }
+.f16-btn-hoje {
+  padding: 6px 14px;
+  border-radius: 7px;
+  border: 1px solid var(--f16-border, #e5e7eb);
+  background: var(--f16-card, #fff);
+  color: var(--f16-text, #374151);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s;
+}
+.f16-btn-hoje:hover { background: #eff6ff; color: #2563eb; border-color: #93c3fd; }
+.f16-date-label-display {
+  font-size: 13px;
+  color: var(--f16-muted, #9ca3af);
+  margin-left: 4px;
+}
+
+/* Cards */
+.f16-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+}
+.f16-card {
+  background: var(--f16-card, #fff);
+  border: 1px solid var(--f16-border, #e5e7eb);
+  border-radius: 12px;
+  padding: 3px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 0px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.05);
+  transition: box-shadow .15s;
+}
+.f16-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,.09); }
+.f16-card-icon {
+  width: 36px; height: 36px;
+  border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+  margin-bottom: 4px;
+}
+.f16-card-icon.total    { background: #eff6ff; color: #2563eb; }
+.f16-card-icon.frotas   { background: #f5f3ff; color: #7c3aed; }
+.f16-card-icon.agre     { background: #ecfdf5; color: #059669; }
+.f16-card-icon.terc     { background: #f1f5f9; color: #475569; }
+.f16-card-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--f16-text, #111827);
+  line-height: 1;
+}
+.f16-card-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--f16-muted, #6b7280);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+.f16-card-pct {
+  font-size: 11px;
+  color: #9ca3af;
+  margin-top: 2px;
+}
+.f16-pct-bar {
+  height: 3px;
+  border-radius: 2px;
+  background: #e5e7eb;
+  overflow: hidden;
+  margin-top: 4px;
+}
+.f16-pct-fill { height: 100%; border-radius: 2px; transition: width .5s; }
+.fill-frotas { background: #7c3aed; }
+.fill-agre   { background: #059669; }
+.fill-terc   { background: #64748b; }
+
+/* Grid inferior: gráfico + ações */
+.f16-bottom-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+@media (max-width: 900px) { .f16-bottom-grid { grid-template-columns: 1fr; } }
+
+/* Painel genérico */
+.f16-panel {
+  background: var(--f16-card, #fff);
+  border: 1px solid var(--f16-border, #e5e7eb);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,.05);
+}
+.f16-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--f16-border, #e5e7eb);
+  background: var(--f16-card, #fff);
+}
+.f16-panel-title {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--f16-text, #374151);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+.f16-panel-body { padding: 16px; }
+
+/* Gráfico */
+.f16-chart-wrap { position: relative; height: 240px; }
+
+/* Legenda do gráfico */
+.f16-chart-legend {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.f16-legend-item {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11.5px; color: var(--f16-muted, #6b7280);
+}
+.f16-legend-dot {
+  width: 10px; height: 10px; border-radius: 3px;
+}
+
+/* Feed de ações recentes */
+.f16-feed { padding: 0; list-style: none; margin: 0; }
+.f16-feed-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--f16-border, #f3f4f6);
+  transition: background .1s;
+}
+.f16-feed-item:last-child { border-bottom: none; }
+.f16-feed-item:hover { background: #f9fafb; }
+.f16-avatar {
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700; color: #fff;
+  background: #3b82f6;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.f16-feed-body { flex: 1; min-width: 0; }
+.f16-feed-main {
+  font-size: 12.5px;
+  color: var(--f16-text, #374151);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.f16-feed-sub {
+  font-size: 11px;
+  color: var(--f16-muted, #9ca3af);
+  margin-top: 1px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.f16-action-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 20px;
+  flex-shrink: 0;
+  margin-top: 3px;
+  white-space: nowrap;
+}
+.f16-feed-time {
+  font-size: 11px;
+  color: #9ca3af;
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+
+/* Estado de loading */
+.f16-loading {
+  display: flex; align-items: center; justify-content: center;
+  height: 200px;
+  color: var(--f16-muted, #9ca3af);
+  font-size: 13px;
+  gap: 8px;
+}
+.f16-spinner {
+  width: 18px; height: 18px;
+  border: 2px solid #e5e7eb;
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: f16-spin .7s linear infinite;
+}
+@keyframes f16-spin { to { transform: rotate(360deg); } }
+
+/* Modo escuro */
+body.dark-mode .f16-date-input,
+body.dark-mode .f16-btn-hoje {
+  background: #1f2937 !important;
+  border-color: #374151 !important;
+  color: #e5e7eb !important;
+}
+body.dark-mode .f16-feed-item:hover { background: #374151 !important; }
+body.dark-mode .f16-card-icon.total  { background: #1e3a5f !important; }
+body.dark-mode .f16-card-icon.frotas { background: #3b1f6e !important; }
+body.dark-mode .f16-card-icon.agre   { background: #064e3b !important; }
+body.dark-mode .f16-card-icon.terc   { background: #1e293b !important; }
+body.dark-mode .f16-pct-bar { background: #374151 !important; }
+
+/* ── Mapa de Frota ───────────────────────────────────────────────────────── */
+#f16-mapa-container { flex: 1; min-width: 0; }
+#f16-mapa-container .leaflet-container { height: 100%; width: 100%; }
+
+.f16-mapa-vitem {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 12px;
+  font-size: 12px;
+  border-bottom: 1px solid var(--f16-border, #f3f4f6);
+  cursor: pointer;
+  transition: background .1s;
+  color: var(--f16-text, #374151);
+}
+.f16-mapa-vitem:hover { background: #f0f9ff; }
+.f16-mapa-vitem.off   { opacity: .7; }
+.f16-mapa-vplaca { font-weight: 700; flex: 1; }
+.f16-mapa-vtipo  { font-size: 10px; color: var(--f16-muted, #9ca3af); }
+.f16-mapa-vloc   { font-size: 10px; color: var(--f16-muted, #9ca3af); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 110px; }
+.f16-mapa-sidebar {
+  width: 260px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--f16-border, #e5e7eb);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: width .25s ease, opacity .25s ease;
+}
+.f16-mapa-sidebar.hidden {
+  width: 0 !important;
+  opacity: 0;
+  border-right: none;
+}
+
+body.dark-mode .f16-mapa-vitem:hover { background: #1e3a5f !important; }
+body.dark-mode #f16-mapa-container .leaflet-tile { filter: invert(1) hue-rotate(180deg); }
+body.dark-mode #f16-mapa-container .leaflet-container { background: #111827; }
+body.dark-mode #f16-mapa-container .leaflet-tile { filter: invert(1) hue-rotate(180deg); }
+
+/* Legenda de cidades */
+.f16-map-legend {
+  background: var(--f16-card, #fff);
+  border: 1px solid var(--f16-border, #e5e7eb);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 11.5px;
+  color: var(--f16-text, #374151);
+  max-width: 180px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.12);
+  max-height: 200px;
+  overflow-y: auto;
+}
+.f16-map-legend-title {
+  font-weight: 700;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--f16-muted, #6b7280);
+  margin-bottom: 6px;
+  border-bottom: 1px solid var(--f16-border, #e5e7eb);
+  padding-bottom: 4px;
+}
+.f16-map-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+}
+.f16-map-legend-dot {
+  width: 12px; height: 12px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  border: 1px solid rgba(0,0,0,.1);
+}
+</style>
+{% endblock %}
+
+{% block content_title %}
+<h1 style="font-size:17px;font-weight:700;margin:0">Dashboard</h1>
+{% endblock %}
+
+{% block content %}
+<div id="f16-dashboard">
+
+  {# ── Filtro de data ─────────────────────────────────────────────────────── #}
+  <div class="f16-date-bar">
+    <label for="f16-date-picker"><i class="fas fa-calendar-alt" style="margin-right:5px"></i>Data:</label>
+    <input type="date" id="f16-date-picker" class="f16-date-input">
+    <button class="f16-btn-hoje" onclick="f16SetDate('hoje')">Hoje</button>
+    <button class="f16-btn-hoje" onclick="f16SetDate('ontem')">Ontem</button>
+    <span id="f16-date-display" class="f16-date-label-display"></span>
+  </div>
+
+  {# ── Cards ──────────────────────────────────────────────────────────────── #}
+  <div class="f16-cards" id="f16-cards">
+    <div class="f16-loading"><div class="f16-spinner"></div> Carregando…</div>
+  </div>
+
+  {# ── Gráfico + Feed ─────────────────────────────────────────────────────── #}
+  <div class="f16-bottom-grid">
+
+    {# Gráfico #}
+    <div class="f16-panel">
+      <div class="f16-panel-header">
+        <span class="f16-panel-title"><i class="fas fa-chart-bar" style="margin-right:6px;color:#3b82f6"></i>Meta × Realizado</span>
+        <div class="f16-chart-legend" id="f16-legend">
+          <span class="f16-legend-item"><span class="f16-legend-dot" style="background:#cbd5e1"></span> Meta</span>
+          <span class="f16-legend-item"><span class="f16-legend-dot" style="background:#3b82f6"></span> Realizado</span>
+        </div>
+      </div>
+      <div class="f16-panel-body">
+        <div class="f16-chart-wrap">
+          <canvas id="f16-chart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    {# Ações recentes #}
+    <div class="f16-panel">
+      <div class="f16-panel-header">
+        <span class="f16-panel-title"><i class="fas fa-history" style="margin-right:6px;color:#3b82f6"></i>Ações Recentes</span>
+      </div>
+      <ul class="f16-feed" id="f16-feed">
+        <li class="f16-loading"><div class="f16-spinner"></div> Carregando…</li>
+      </ul>
+    </div>
+
+  </div>
+
+  {# ── Mapa de Frota ──────────────────────────────────────────────────────── #}
+  <div class="f16-panel" style="margin-top:16px" id="f16-mapa-panel">
+    <div class="f16-panel-header">
+      <span class="f16-panel-title">
+        <i class="fas fa-map-marked-alt" style="margin-right:6px;color:#3b82f6"></i>Mapa de Frota
+      </span>
+      <div style="display:flex;align-items:center;gap:12px">
+        <span id="f16-mapa-status" style="font-size:12px;color:var(--f16-muted,#6b7280)">Aguardando…</span>
+        <button class="f16-btn-hoje" onclick="f16ToggleSidebar()" id="f16-mapa-toggle-btn" title="Mostrar/ocultar lista">
+          <i class="fas fa-list" id="f16-mapa-toggle-icon"></i> Lista
+        </button>
+        <button class="f16-btn-hoje" onclick="f16MapRefresh()" title="Atualizar mapa">
+          <i class="fas fa-sync-alt"></i> Atualizar
+        </button>
+      </div>
+    </div>
+    <div style="display:flex;height:500px">
+      <div class="f16-mapa-sidebar" id="f16-mapa-sidebar">
+        <div style="padding:8px 12px;font-size:11px;font-weight:700;color:var(--f16-muted,#6b7280);text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--f16-border,#e5e7eb);flex-shrink:0">
+          Veículos
+        </div>
+        <div id="f16-mapa-vlist" style="flex:1;overflow-y:auto">
+          <div style="padding:20px;text-align:center;color:#9ca3af;font-size:12px">
+            Role até aqui para carregar
+          </div>
+        </div>
+      </div>
+      <div id="f16-mapa-container" style="flex:1;min-width:0;height:500px"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  /* ── Utilitários ────────────────────────────────────────────────────────── */
+  function fmtDate(d) {
+    // YYYY-MM-DD → DD/MM/YYYY
+    if (!d) return '';
+    const [y, m, dd] = d.split('-');
+    return `${dd}/${m}/${y}`;
+  }
+  function isoToday() {
+    return new Date().toISOString().slice(0, 10);
+  }
+  function isoYesterday() {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return d.toISOString().slice(0, 10);
+  }
+
+  /* ── Inicialização da data ──────────────────────────────────────────────── */
+  const picker = document.getElementById('f16-date-picker');
+  const display = document.getElementById('f16-date-display');
+
+  window.f16SetDate = function (preset) {
+    if (preset === 'hoje')   picker.value = isoToday();
+    if (preset === 'ontem')  picker.value = isoYesterday();
+    f16Load(picker.value);
+  };
+
+  picker.addEventListener('change', () => f16Load(picker.value));
+
+  // Padrão: ontem
+  picker.value = isoYesterday();
+
+  /* ── Chart.js ───────────────────────────────────────────────────────────── */
+  let f16Chart = null;
+  const ctx = document.getElementById('f16-chart').getContext('2d');
+
+  function isDark() { return document.body.classList.contains('dark-mode'); }
+  function gridColor() { return isDark() ? '#374151' : '#e5e7eb'; }
+  function labelColor() { return isDark() ? '#9ca3af' : '#6b7280'; }
+
+  function buildChart(data) {
+    const c = data.chart;
+    const labels = ['Frota', 'Agregado', 'Terceiro'];
+    const meta     = [c.frotas_meta,    c.agregados_meta,    c.terceiros_meta];
+    const realizado = [c.frotas_real,   c.agregados_real,   c.terceiros_real];
+
+    if (f16Chart) { f16Chart.destroy(); }
+
+    f16Chart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          {
+            label: 'Meta (total)',
+            data: meta,
+            backgroundColor: isDark() ? '#334155' : '#e2e8f0',
+            borderRadius: 5,
+            barPercentage: 0.6,
+          },
+          {
+            label: 'Realizado',
+            data: realizado,
+            backgroundColor: '#3b82f6',
+            borderRadius: 5,
+            barPercentage: 0.6,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y}`,
+            },
+          },
+        },
+        scales: {
+          x: {
+            grid: { color: gridColor() },
+            ticks: { color: labelColor(), font: { size: 11 } },
+          },
+          y: {
+            beginAtZero: true,
+            grid: { color: gridColor() },
+            ticks: { color: labelColor(), font: { size: 11 }, precision: 0 },
+          },
+        },
+      },
+    });
+  }
+
+  /* ── Cards ──────────────────────────────────────────────────────────────── */
+  function buildCards(d) {
+    const c = d.cards;
+    const cardsEl = document.getElementById('f16-cards');
+    cardsEl.innerHTML = `
+      <div class="f16-card">
+        <div class="f16-card-icon total"><i class="fas fa-truck-moving"></i></div>
+        <div class="f16-card-value">${c.total}</div>
+        <div class="f16-card-label">Total de Veículos</div>
+      </div>
+      <div class="f16-card">
+        <div class="f16-card-icon frotas"><i class="fas fa-truck"></i></div>
+        <div class="f16-card-value">${c.frotas}</div>
+        <div class="f16-card-label">Frota</div>
+        <div class="f16-pct-bar"><div class="f16-pct-fill fill-frotas" style="width:${c.frotas_pct}%"></div></div>
+        <div class="f16-card-pct">${c.frotas_pct}% do total</div>
+      </div>
+      <div class="f16-card">
+        <div class="f16-card-icon agre"><i class="fas fa-handshake"></i></div>
+        <div class="f16-card-value">${c.agregados}</div>
+        <div class="f16-card-label">Agregados</div>
+        <div class="f16-pct-bar"><div class="f16-pct-fill fill-agre" style="width:${c.agregados_pct}%"></div></div>
+        <div class="f16-card-pct">${c.agregados_pct}% do total</div>
+      </div>
+      <div class="f16-card">
+        <div class="f16-card-icon terc"><i class="fas fa-user-tie"></i></div>
+        <div class="f16-card-value">${c.terceiros}</div>
+        <div class="f16-card-label">Terceiros</div>
+        <div class="f16-pct-bar"><div class="f16-pct-fill fill-terc" style="width:${c.terceiros_pct}%"></div></div>
+        <div class="f16-card-pct">${c.terceiros_pct}% do total</div>
+      </div>
+    `;
+  }
+
+  /* ── Feed de ações ──────────────────────────────────────────────────────── */
+  /* ── Feed de ações ──────────────────────────────────────────────────────── */
+  function buildFeed(d) {
+    const feed = document.getElementById('f16-feed');
+    if (!d.recent || !d.recent.length) {
+      feed.innerHTML = '<li style="padding:24px;text-align:center;color:#9ca3af;font-size:13px">Nenhuma ação registrada</li>';
+      return;
+    }
+    function avatarColor(name) {
+      const colors = ['#3b82f6','#8b5cf6','#059669','#d97706','#dc2626','#0891b2'];
+      let h = 0;
+      for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) & 0xffffffff;
+      return colors[Math.abs(h) % colors.length];
+    }
+    feed.innerHTML = d.recent.map(e => `
+      <li class="f16-feed-item">
+        <div class="f16-avatar" style="background:${avatarColor(e.user)}">${e.user_init}</div>
+        <div class="f16-feed-body">
+          <div class="f16-feed-main" title="${e.object}">${e.object}</div>
+          <div class="f16-feed-sub">${e.user} &middot; ${e.model}</div>
+        </div>
+        <span class="f16-action-badge" style="background:${e.bg};color:${e.color}">${e.action}</span>
+        <span class="f16-feed-time">${e.time}</span>
+      </li>
+    `).join('');
+  }
+
+  /* ── Carga principal ────────────────────────────────────────────────────── */
+  async function f16Load(dateIso) {
+    display.textContent = dateIso ? '(' + fmtDate(dateIso) + ')' : '';
+
+    document.getElementById('f16-cards').innerHTML =
+      '<div class="f16-loading" style="grid-column:1/-1"><div class="f16-spinner"></div> Carregando…</div>';
+    document.getElementById('f16-feed').innerHTML =
+      '<li class="f16-loading"><div class="f16-spinner"></div> Carregando…</li>';
+
+    try {
+      const url = '/admin/dashboard-api/?date=' + (dateIso || '');
+      const resp = await fetch(url, { credentials: 'same-origin' });
+      if (!resp.ok) throw new Error(resp.status);
+      const data = await resp.json();
+      buildCards(data);
+      buildChart(data);
+      buildFeed(data);
+    } catch (err) {
+      document.getElementById('f16-cards').innerHTML =
+        '<div class="f16-loading" style="grid-column:1/-1;color:#dc2626">Erro ao carregar dados</div>';
+      console.error('f16 dashboard error:', err);
+    }
+  }
+
+  f16Load(picker.value);
+
+  const darkToggle = document.querySelector('.dark-mode-toggle, [data-lte-toggle="dark-mode"]');
+  if (darkToggle) {
+    darkToggle.addEventListener('click', () => {
+      setTimeout(() => {
+        if (f16Chart) {
+          f16Chart.options.scales.x.grid.color = gridColor();
+          f16Chart.options.scales.x.ticks.color = labelColor();
+          f16Chart.options.scales.y.grid.color = gridColor();
+          f16Chart.options.scales.y.ticks.color = labelColor();
+          f16Chart.data.datasets[0].backgroundColor = isDark() ? '#334155' : '#e2e8f0';
+          f16Chart.update();
+        }
+      }, 100);
+    });
+  }
+})();
+</script>
+
+<script>
+(function () {
+  var mapInited = false;
+  var lmap = null, vLayer = null, cLayer = null, mgLayer = null, legendCtrl = null;
+  var REFRESH_MS = 60000;
+  var geoCache = {};
+  var geoQueue = [];
+  var geoRunning = false;
+  var lastCidades = [];
+
+  /* ── Utilitários ─────────────────────────────────────────────────────────── */
+  function setStatus(html) {
+    var el = document.getElementById('f16-mapa-status');
+    if (el) el.innerHTML = html;
+  }
+
+  function normPlaca(raw) {
+    if (!raw) return 'N/A';
+    return raw.trim().split(/\s+/)[0];
+  }
+
+  /* ── Geocodificação reversa ──────────────────────────────────────────────── */
+  function geoKey(lat, lng) { return lat.toFixed(4) + ',' + lng.toFixed(4); }
+
+  function processGeoQueue() {
+    if (geoRunning || !geoQueue.length) return;
+    var item = geoQueue.shift();
+    var k = geoKey(item.lat, item.lng);
+    if (geoCache[k]) { item.cb(geoCache[k]); processGeoQueue(); return; }
+    geoRunning = true;
+    fetch('https://nominatim.openstreetmap.org/reverse?lat=' + item.lat + '&lon=' + item.lng + '&format=json', {
+      headers: { 'Accept-Language': 'pt-BR' }
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        var addr = data.address || {};
+        var bairro = addr.suburb || addr.neighbourhood || addr.quarter || addr.village || '';
+        var cidade = addr.city || addr.town || addr.municipality || '';
+        var loc = bairro && cidade ? bairro + ', ' + cidade : (cidade || bairro || '');
+        geoCache[k] = loc || '—';
+        item.cb(geoCache[k]);
+      })
+      .catch(function () { geoCache[k] = '—'; item.cb('—'); })
+      .finally(function () { geoRunning = false; setTimeout(processGeoQueue, 1100); });
+  }
+
+  function geocode(lat, lng, cb) {
+    var k = geoKey(lat, lng);
+    if (geoCache[k]) { cb(geoCache[k]); return; }
+    geoQueue.push({ lat: lat, lng: lng, cb: cb });
+    processGeoQueue();
+  }
+
+  /* ── Legenda de cidades ──────────────────────────────────────────────────── */
+  function buildLegend(cidades) {
+    if (!legendCtrl || !lmap) return;
+    var ativas = cidades.filter(function (c) { return c.ativa_semana; });
+    var el = legendCtrl.getContainer();
+    if (!el) return;
+    if (!ativas.length) {
+      el.style.display = 'none';
+      return;
+    }
+    el.style.display = '';
+    el.innerHTML = '<div class="f16-map-legend-title"><i class="fas fa-map-marker-alt" style="margin-right:4px"></i>Cidades ativas</div>'
+      + ativas.map(function (c) {
+          return '<div class="f16-map-legend-item">'
+            + '<span class="f16-map-legend-dot" style="background:' + (c.cor || '#3b82f6') + '"></span>'
+            + '<span>' + c.nome + '</span>'
+            + '</div>';
+        }).join('');
+  }
+
+  /* ── Fronteira de MG (IBGE) ──────────────────────────────────────────────── */
+  function loadMG() {
+    if (mgLayer) return;
+    fetch('https://servicodados.ibge.gov.br/api/v3/malhas/estados/31?formato=application/vnd.geo+json')
+      .then(function (r) { return r.json(); })
+      .then(function (geojson) {
+        mgLayer = L.geoJSON(geojson, {
+          style: {
+            color: '#64748b',
+            weight: 2.5,
+            fillOpacity: 0,
+            dashArray: '5 4',
+          },
+          interactive: false,
+        }).addTo(lmap);
+      })
+      .catch(function (err) { console.warn('IBGE MG border:', err); });
+  }
+
+  /* ── Inicialização do mapa ───────────────────────────────────────────────── */
+  function initMap() {
+    if (mapInited) return;
+    mapInited = true;
+
+    lmap = L.map('f16-mapa-container', { zoomControl: true }).setView([-19.5, -44.0], 7);
+
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
+      subdomains: 'abcd',
+      maxZoom: 20,
+    }).addTo(lmap);
+
+    vLayer = L.layerGroup().addTo(lmap);
+    cLayer = L.layerGroup().addTo(lmap);
+
+    // Legenda (controle Leaflet)
+    legendCtrl = L.control({ position: 'bottomright' });
+    legendCtrl.onAdd = function () {
+      var div = L.DomUtil.create('div', 'f16-map-legend');
+      div.style.display = 'none';
+      L.DomEvent.disableScrollPropagation(div);
+      return div;
+    };
+    legendCtrl.addTo(lmap);
+
+    loadMG();
+    loadAll();
+    setInterval(loadAll, REFRESH_MS);
+  }
+
+  function loadAll() { loadVeiculos(); loadCidades(); }
+
+  /* ── Carga de veículos ───────────────────────────────────────────────────── */
+  function loadVeiculos() {
+    setStatus('<span style="display:inline-flex;align-items:center;gap:5px"><span class="f16-spinner" style="width:12px;height:12px"></span> Carregando…</span>');
+    var listEl = document.getElementById('f16-mapa-vlist');
+    if (listEl) listEl.innerHTML = '<div style="padding:16px;text-align:center;color:#9ca3af;font-size:12px"><div class="f16-spinner" style="margin:0 auto 6px"></div>Carregando…</div>';
+
+    fetch('/admin/mapa-api/veiculos/', { credentials: 'same-origin' })
+      .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+      .then(function (res) {
+        if (!res.ok) {
+          var msg = res.data.erro || 'API indisponível';
+          setStatus('<i class="fas fa-exclamation-triangle" style="color:#f59e0b"></i> ' + msg);
+          if (listEl) listEl.innerHTML = '<div style="padding:16px;color:#f59e0b;font-size:12px;text-align:center"><i class="fas fa-exclamation-triangle"></i><br>' + msg + '</div>';
+          return;
+        }
+        var veiculos = res.data.veiculos || [];
+        var on = veiculos.filter(function (v) { return v.ignicao; }).length;
+        setStatus(
+          '<i class="fas fa-circle" style="color:#22c55e;font-size:8px;vertical-align:middle"></i> ' + on + ' ligados' +
+          '&nbsp;&nbsp;<i class="fas fa-circle" style="color:#9ca3af;font-size:8px;vertical-align:middle"></i> ' + (veiculos.length - on) + ' desligados'
+        );
+
+        if (listEl) {
+          if (!veiculos.length) {
+            listEl.innerHTML = '<div style="padding:16px;color:#9ca3af;font-size:12px;text-align:center">Nenhum veículo</div>';
+          } else {
+            listEl.innerHTML = veiculos.map(function (v) {
+              var placa = normPlaca(v.placa);
+              var lat = parseFloat(v.lat) || 0;
+              var lng = parseFloat(v.lng) || 0;
+              var gk = (lat && lng) ? geoKey(lat, lng) : '';
+              var loc = (gk && geoCache[gk]) ? geoCache[gk] : '…';
+              return '<div class="f16-mapa-vitem ' + (v.ignicao ? 'on' : 'off') + '" '
+                + 'data-lat="' + lat + '" data-lng="' + lng + '" data-gk="' + gk + '">'
+                + '<i class="fas fa-circle" style="color:' + (v.ignicao ? '#22c55e' : '#9ca3af') + ';font-size:8px;flex-shrink:0"></i>'
+                + '<span class="f16-mapa-vplaca">' + placa + '</span>'
+                + '<span class="f16-mapa-vloc" data-gk="' + gk + '">' + loc + '</span>'
+                + '</div>';
+            }).join('');
+            listEl.querySelectorAll('.f16-mapa-vitem').forEach(function (el) {
+              el.addEventListener('click', function () {
+                var lat = parseFloat(el.dataset.lat);
+                var lng = parseFloat(el.dataset.lng);
+                if (lat && lng) lmap.setView([lat, lng], 14);
+              });
+            });
+            veiculos.forEach(function (v) {
+              var lat = parseFloat(v.lat);
+              var lng = parseFloat(v.lng);
+              if (!lat || !lng) return;
+              var k = geoKey(lat, lng);
+              if (geoCache[k]) return;
+              geocode(lat, lng, function (loc) {
+                listEl.querySelectorAll('.f16-mapa-vloc[data-gk="' + k + '"]').forEach(function (span) {
+                  span.textContent = loc;
+                });
+              });
+            });
+          }
+        }
+
+        vLayer.clearLayers();
+        var iconOn  = L.icon({ iconUrl: "{% static 'admin/img/truck-on.png' %}",  iconSize:[38,38], iconAnchor:[19,38], popupAnchor:[0,-40] });
+        var iconOff = L.icon({ iconUrl: "{% static 'admin/img/truck-off.png' %}", iconSize:[34,34], iconAnchor:[17,34], popupAnchor:[0,-36] });
+
+        veiculos.forEach(function (v) {
+          var lat = parseFloat(v.lat);
+          var lng = parseFloat(v.lng);
+          if (!lat || !lng) return;
+          var placa = normPlaca(v.placa);
+          var k = geoKey(lat, lng);
+          var locStr = geoCache[k] || '…';
+          L.marker([lat, lng], { icon: v.ignicao ? iconOn : iconOff })
+            .addTo(vLayer)
+            .bindPopup(
+              '<strong>' + placa + '</strong><br>'
+              + '<span style="color:#6b7280;font-size:11px">' + locStr + '</span><br>'
+              + 'Ignição: ' + (v.ignicao ? '<span style="color:#22c55e">● Ligado</span>' : '<span style="color:#9ca3af">● Desligado</span>') + '<br>'
+              + (v.velocidade != null ? 'Velocidade: ' + v.velocidade + ' km/h<br>' : '')
+              + '<small style="color:#9ca3af">' + lat.toFixed(5) + ', ' + lng.toFixed(5) + '</small>',
+              { maxWidth: 220 }
+            );
+        });
+      })
+      .catch(function (err) {
+        setStatus('<i class="fas fa-times-circle" style="color:#ef4444"></i> API indisponível');
+        var el2 = document.getElementById('f16-mapa-vlist');
+        if (el2) el2.innerHTML = '<div style="padding:16px;color:#ef4444;font-size:12px;text-align:center"><i class="fas fa-times-circle"></i><br>API indisponível</div>';
+        console.warn('mapa veiculos:', err);
+      });
+  }
+
+  /* ── Cidades ─────────────────────────────────────────────────────────────── */
+  function loadCidades() {
+    fetch('/admin/mapa-api/cidades/', { credentials: 'same-origin' })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        lastCidades = data.cidades || [];
+        cLayer.clearLayers();
+        lastCidades.forEach(function (c) {
+          if (!c.poligono || !c.poligono.length) return;
+          var latlngs = c.poligono.map(function (p) { return [p[0], p[1]]; });
+          L.polygon(latlngs, {
+            color: c.cor || '#3b82f6',
+            fillColor: c.cor || '#3b82f6',
+            fillOpacity: c.ativa_semana ? 0.18 : 0.04,
+            weight: c.ativa_semana ? 2 : 1,
+            dashArray: c.ativa_semana ? null : '6 4',
+          }).addTo(cLayer).bindTooltip(c.nome, { permanent: false, sticky: true });
+        });
+        buildLegend(lastCidades);
+      })
+      .catch(function (err) { console.warn('mapa cidades:', err); });
+  }
+
+  /* ── Lazy init ───────────────────────────────────────────────────────────── */
+  function maybInitMap() {
+    if (mapInited) return;
+    var panel = document.getElementById('f16-mapa-panel');
+    if (!panel) return;
+    if (panel.getBoundingClientRect().top < window.innerHeight + 300) initMap();
+  }
+
+  window.f16MapRefresh = function () { if (!mapInited) { initMap(); return; } loadAll(); };
+
+  window.f16ToggleSidebar = function () {
+    var sb = document.getElementById('f16-mapa-sidebar');
+    var icon = document.getElementById('f16-mapa-toggle-icon');
+    if (!sb) return;
+    var hidden = sb.classList.toggle('hidden');
+    if (icon) {
+      icon.className = hidden ? 'fas fa-list-ul' : 'fas fa-list';
+    }
+    // Força o Leaflet a recalcular o tamanho após a transição
+    if (lmap) setTimeout(function () { lmap.invalidateSize(); }, 300);
+  };
+  window.addEventListener('scroll', maybInitMap, { passive: true });
+  setTimeout(maybInitMap, 600);
+})();
+</script>
+{% endblock %}

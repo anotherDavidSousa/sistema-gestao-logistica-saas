@@ -1,0 +1,706 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block title %}Mapa de Frota — {{ site_title }}{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+{# Leaflet CSS #}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+<style>
+/* ── Layout geral ──────────────────────────────────────────────────────────── */
+#mapa-container {
+  display: flex;
+  height: calc(100vh - 120px);
+  min-height: 500px;
+  gap: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 24px rgba(0,0,0,.12);
+  border: 1px solid var(--f16-border, #e5e7eb);
+}
+
+#mapa-sidebar {
+  width: 300px;
+  min-width: 260px;
+  max-width: 340px;
+  background: var(--f16-card, #fff);
+  border-right: 1px solid var(--f16-border, #e5e7eb);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+#mapa-map {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ── Cabeçalho sidebar ──────────────────────────────────────────────────────── */
+.sidebar-header {
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid var(--f16-border, #e5e7eb);
+  flex-shrink: 0;
+}
+.sidebar-header h3 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--f16-text, #111827);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+.sidebar-tabs {
+  display: flex;
+  gap: 4px;
+}
+.sidebar-tab {
+  flex: 1;
+  padding: 5px 0;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid var(--f16-border, #e5e7eb);
+  border-radius: 7px;
+  background: none;
+  color: var(--f16-text-muted, #6b7280);
+  cursor: pointer;
+  transition: all .15s;
+  text-align: center;
+}
+.sidebar-tab.active {
+  background: #3b82f6;
+  border-color: #3b82f6;
+  color: #fff;
+}
+
+/* ── Filtros / search ────────────────────────────────────────────────────────── */
+.sidebar-search {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--f16-border, #e5e7eb);
+  flex-shrink: 0;
+}
+.sidebar-search input {
+  width: 100%;
+  padding: 5px 10px;
+  border: 1px solid var(--f16-border, #e5e7eb);
+  border-radius: 7px;
+  font-size: 12px;
+  background: var(--f16-bg, #f9fafb);
+  color: var(--f16-text, #111827);
+  outline: none;
+  box-sizing: border-box;
+}
+.sidebar-search input:focus { border-color: #3b82f6; }
+
+/* ── Lista de itens na sidebar ──────────────────────────────────────────────── */
+.sidebar-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px 0;
+}
+.sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 12px;
+  cursor: pointer;
+  border-radius: 0;
+  transition: background .1s;
+  border-bottom: 1px solid transparent;
+}
+.sidebar-item:hover { background: var(--f16-bg, #f9fafb); }
+.sidebar-item.highlight { background: #eff6ff; }
+
+.item-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.item-dot.on  { background: #22c55e; box-shadow: 0 0 5px #22c55e88; }
+.item-dot.off { background: #9ca3af; }
+
+.item-body { flex: 1; min-width: 0; }
+.item-title {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--f16-text, #111827);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.item-sub {
+  font-size: 11px;
+  color: var(--f16-text-muted, #6b7280);
+}
+
+/* cidade toggle */
+.cidade-toggle {
+  width: 30px; height: 17px;
+  border-radius: 9px;
+  border: none;
+  cursor: pointer;
+  position: relative;
+  transition: background .2s;
+  flex-shrink: 0;
+}
+.cidade-toggle.on  { background: #22c55e; }
+.cidade-toggle.off { background: #d1d5db; }
+.cidade-toggle::after {
+  content: '';
+  position: absolute;
+  width: 13px; height: 13px;
+  background: #fff;
+  border-radius: 50%;
+  top: 2px;
+  transition: left .2s;
+}
+.cidade-toggle.on::after  { left: 15px; }
+.cidade-toggle.off::after { left: 2px; }
+
+/* ── Rodapé sidebar ─────────────────────────────────────────────────────────── */
+.sidebar-footer {
+  padding: 8px 12px;
+  border-top: 1px solid var(--f16-border, #e5e7eb);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.sidebar-footer small {
+  font-size: 11px;
+  color: var(--f16-text-muted, #9ca3af);
+}
+#btn-refresh {
+  padding: 4px 10px;
+  font-size: 11px;
+  border: 1px solid var(--f16-border, #e5e7eb);
+  border-radius: 6px;
+  background: none;
+  color: #3b82f6;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background .12s;
+}
+#btn-refresh:hover { background: #eff6ff; }
+
+/* ── Status bar topo do mapa ─────────────────────────────────────────────────── */
+#mapa-statusbar {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 500;
+  background: var(--f16-card, #fff);
+  border: 1px solid var(--f16-border, #e5e7eb);
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 11.5px;
+  color: var(--f16-text, #111827);
+  box-shadow: 0 2px 8px rgba(0,0,0,.1);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+}
+#mapa-statusbar .dot-on  { display:inline-block;width:8px;height:8px;border-radius:50%;background:#22c55e; }
+#mapa-statusbar .dot-off { display:inline-block;width:8px;height:8px;border-radius:50%;background:#9ca3af; }
+
+/* ── Leaflet overrides para dark mode ──────────────────────────────────────── */
+[data-bs-theme="dark"] .leaflet-tile { filter: invert(1) hue-rotate(180deg) brightness(.85) contrast(.9); }
+[data-bs-theme="dark"] .leaflet-container { background: #1e293b; }
+[data-bs-theme="dark"] #mapa-sidebar   { background: #1e293b; border-color: #334155; }
+[data-bs-theme="dark"] .sidebar-tab    { border-color: #334155; color: #94a3b8; }
+[data-bs-theme="dark"] .sidebar-search input { background: #0f172a; border-color: #334155; color: #e2e8f0; }
+[data-bs-theme="dark"] .sidebar-item:hover   { background: #0f172a; }
+[data-bs-theme="dark"] .sidebar-item.highlight { background: #1e3a5f; }
+[data-bs-theme="dark"] .item-title      { color: #e2e8f0; }
+[data-bs-theme="dark"] .item-sub        { color: #94a3b8; }
+[data-bs-theme="dark"] .sidebar-header h3 { color: #e2e8f0; }
+[data-bs-theme="dark"] .sidebar-footer small { color: #64748b; }
+[data-bs-theme="dark"] #btn-refresh     { border-color: #334155; }
+[data-bs-theme="dark"] #mapa-statusbar  { background: #1e293b; border-color: #334155; color: #e2e8f0; }
+[data-bs-theme="dark"] .leaflet-popup-content-wrapper { background: #1e293b; color: #e2e8f0; border: 1px solid #334155; }
+[data-bs-theme="dark"] .leaflet-popup-tip { background: #1e293b; }
+
+/* ── Popup do marcador ────────────────────────────────────────────────────────── */
+.veiculo-popup { font-size: 12.5px; min-width: 180px; }
+.veiculo-popup .placa { font-size: 15px; font-weight: 800; letter-spacing: .06em; margin-bottom: 4px; }
+.veiculo-popup .tipo  { font-size: 11.5px; color: #6b7280; margin-bottom: 6px; }
+.veiculo-popup .row   { display:flex; justify-content:space-between; font-size:11.5px; padding:2px 0; }
+.veiculo-popup .badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.badge-on  { background:#dcfce7; color:#16a34a; }
+.badge-off { background:#f1f5f9; color:#6b7280; }
+
+/* ── Loading overlay ────────────────────────────────────────────────────────── */
+#mapa-loading {
+  position: absolute;
+  inset: 0;
+  background: rgba(255,255,255,.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #3b82f6;
+  gap: 10px;
+}
+[data-bs-theme="dark"] #mapa-loading { background: rgba(15,23,42,.7); color: #60a5fa; }
+.spin {
+  width: 20px; height: 20px;
+  border: 3px solid #e5e7eb;
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="padding: 0 4px;">
+
+  {# Breadcrumb-style header #}
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+    <div>
+      <h2 style="margin:0;font-size:17px;font-weight:700;color:var(--f16-text,#111827);">
+        <i class="fas fa-map-marked-alt" style="color:#3b82f6;margin-right:8px;"></i>Mapa de Frota
+      </h2>
+      <p style="margin:4px 0 0;font-size:12px;color:var(--f16-text-muted,#6b7280);">
+        Posições em tempo real via TrackerPrime · Zonas de entrega por cidade
+      </p>
+    </div>
+    <a href="/admin/core/cidadeentrega/" class="btn" style="
+      padding:6px 14px;font-size:12px;font-weight:600;
+      background:#3b82f6;color:#fff;border:none;border-radius:8px;
+      text-decoration:none;display:flex;align-items:center;gap:6px;
+    ">
+      <i class="fas fa-city"></i> Gerenciar Cidades
+    </a>
+  </div>
+
+  {# Mapa + sidebar #}
+  <div id="mapa-container" style="position:relative;">
+    <div id="mapa-loading">
+      <div class="spin"></div> Carregando dados…
+    </div>
+
+    {# Sidebar #}
+    <div id="mapa-sidebar">
+      <div class="sidebar-header">
+        <h3>Painel</h3>
+        <div class="sidebar-tabs">
+          <button class="sidebar-tab active" data-tab="veiculos" onclick="switchTab('veiculos')">
+            <i class="fas fa-truck" style="margin-right:4px;"></i>Veículos
+          </button>
+          <button class="sidebar-tab" data-tab="cidades" onclick="switchTab('cidades')">
+            <i class="fas fa-city" style="margin-right:4px;"></i>Cidades
+          </button>
+        </div>
+      </div>
+
+      <div class="sidebar-search">
+        <input type="text" id="sidebar-filter" placeholder="Filtrar…" oninput="filterList()">
+      </div>
+
+      <div class="sidebar-list" id="sidebar-list"></div>
+
+      <div class="sidebar-footer">
+        <small id="status-text">Carregando…</small>
+        <button id="btn-refresh" onclick="loadData()">
+          <i class="fas fa-sync-alt"></i> Atualizar
+        </button>
+      </div>
+    </div>
+
+    {# Mapa Leaflet #}
+    <div id="mapa-map"></div>
+
+    {# Status badge over map #}
+    <div id="mapa-statusbar">
+      <span class="dot-on"></span><span id="sb-on">–</span> ligados
+      &nbsp;·&nbsp;
+      <span class="dot-off"></span><span id="sb-off">–</span> desligados
+    </div>
+  </div>
+
+</div>
+
+{# Leaflet JS #}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV/XN/WLs=" crossorigin=""></script>
+<script>
+(function () {
+'use strict';
+
+/* ── Constantes ─────────────────────────────────────────────────────────────── */
+const API_VEICULOS = '/admin/mapa-api/veiculos/';
+const API_CIDADES  = '/admin/mapa-api/cidades/';
+const REFRESH_MS   = 60000;  // 60 s
+
+/* ── Estado ──────────────────────────────────────────────────────────────────── */
+let map, mgLayer;
+let markerLayer   = L.layerGroup();
+let cidadeLayer   = L.layerGroup();
+let veiculosData  = [];
+let cidadesData   = [];
+let currentTab    = 'veiculos';
+let filterText    = '';
+let refreshTimer  = null;
+
+/* ── Inicializa o mapa ─────────────────────────────────────────────────────── */
+function initMap() {
+  map = L.map('mapa-map', {
+    center: [-18.5, -44.5],
+    zoom: 7,
+    zoomControl: true,
+  });
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/">OpenStreetMap</a>',
+    maxZoom: 18,
+  }).addTo(map);
+
+  markerLayer.addTo(map);
+  cidadeLayer.addTo(map);
+
+  // Carrega o contorno de MG via IBGE
+  fetch('https://servicodados.ibge.gov.br/api/v3/malhas/estados/31?formato=application/vnd.geo+json')
+    .then(r => r.json())
+    .then(gj => {
+      mgLayer = L.geoJSON(gj, {
+        style: {
+          color: '#3b82f6',
+          weight: 2,
+          fillOpacity: 0.03,
+          fillColor: '#3b82f6',
+        }
+      }).addTo(map);
+      map.fitBounds(mgLayer.getBounds(), { padding: [20, 20] });
+    })
+    .catch(() => {/* falhou silenciosamente — mapa ainda funciona */});
+}
+
+/* ── Ícones dos marcadores ──────────────────────────────────────────────────── */
+function makeIcon(ignicao) {
+  const color  = ignicao ? '#22c55e' : '#9ca3af';
+  const shadow = ignicao ? '0 0 6px #22c55e88' : 'none';
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="36" viewBox="0 0 28 36">
+    <path d="M14 0C6.268 0 0 6.268 0 14c0 10 14 22 14 22S28 24 28 14C28 6.268 21.732 0 14 0z"
+      fill="${color}" stroke="#fff" stroke-width="2"/>
+    <text x="14" y="19" text-anchor="middle" font-size="13" fill="#fff" font-family="sans-serif">🚛</text>
+  </svg>`;
+  return L.divIcon({
+    html: `<div style="filter:drop-shadow(${shadow})">${svg}</div>`,
+    iconSize: [28, 36],
+    iconAnchor: [14, 36],
+    popupAnchor: [0, -36],
+    className: '',
+  });
+}
+
+/* ── Renderiza marcadores de veículos ─────────────────────────────────────── */
+function renderVeiculos(veiculos) {
+  markerLayer.clearLayers();
+  veiculos.forEach(v => {
+    const lat = v.lat ?? v.latitude;
+    const lng = v.lng ?? v.longitude;
+    if (!lat || !lng) return;
+
+    const ign = v.ignicao === 1 || v.ignicao === true;
+    const marker = L.marker([lat, lng], { icon: makeIcon(ign) });
+
+    const tipoBadge = v.tipo_id
+      ? `<span style="font-size:11px;color:#6b7280;">#tipo${v.tipo_id}</span>`
+      : '';
+    const ignBadge = ign
+      ? `<span class="badge badge-on">🟢 Ligada</span>`
+      : `<span class="badge badge-off">🔴 Desligada</span>`;
+
+    marker.bindPopup(`
+      <div class="veiculo-popup">
+        <div class="placa">${esc(v.placa || '–')}</div>
+        <div class="tipo">${esc(v.tipo || v.icone || '')} ${tipoBadge}</div>
+        <div class="row">
+          <span>Ignição:</span>${ignBadge}
+        </div>
+        <div class="row">
+          <span>ID:</span><span style="font-weight:600;">${v.id || '–'}</span>
+        </div>
+        <div class="row" style="font-size:10.5px;color:#9ca3af;margin-top:4px;">
+          ${lat.toFixed(6)}, ${lng.toFixed(6)}
+        </div>
+      </div>
+    `, { maxWidth: 240 });
+
+    // Clique no marcador destaca item na sidebar
+    marker.on('click', () => {
+      highlightSidebarItem(v.id);
+      if (currentTab !== 'veiculos') switchTab('veiculos');
+    });
+
+    marker._veiculoId = v.id;
+    markerLayer.addLayer(marker);
+  });
+}
+
+/* ── Renderiza polígonos das cidades ─────────────────────────────────────── */
+function renderCidades(cidades) {
+  cidadeLayer.clearLayers();
+  cidades.forEach(c => {
+    const pts = c.poligono;
+    if (!pts || !pts.length) return;
+
+    const cor = c.cor || '#3b82f6';
+    const ativa = c.ativa_semana;
+
+    const poly = L.polygon(pts, {
+      color: cor,
+      weight: 2,
+      fillColor: cor,
+      fillOpacity: ativa ? 0.2 : 0.06,
+      dashArray: ativa ? null : '6 4',
+    });
+
+    poly.bindPopup(`
+      <div style="font-size:13px;">
+        <b>${esc(c.nome)}</b><br>
+        <span style="font-size:12px;color:#6b7280;">
+          ${ativa ? '✅ Ativa esta semana' : '⬜ Inativa esta semana'}
+        </span>
+      </div>
+    `);
+
+    poly._cidadeId = c.id;
+    cidadeLayer.addLayer(poly);
+  });
+}
+
+/* ── Sidebar: lista de veículos ──────────────────────────────────────────── */
+function buildVeiculosList(veiculos) {
+  const list = document.getElementById('sidebar-list');
+  const q = filterText.toLowerCase();
+  const filtered = veiculos.filter(v =>
+    !q || (v.placa || '').toLowerCase().includes(q)
+  );
+
+  let html = '';
+  const ligados   = filtered.filter(v => v.ignicao === 1 || v.ignicao === true);
+  const desligados = filtered.filter(v => v.ignicao !== 1 && v.ignicao !== true);
+
+  if (ligados.length) {
+    html += `<div style="padding:4px 12px;font-size:10px;font-weight:700;text-transform:uppercase;
+      letter-spacing:.06em;color:#22c55e;">🟢 Ligados (${ligados.length})</div>`;
+    ligados.forEach(v => {
+      html += veiculoItem(v, true);
+    });
+  }
+  if (desligados.length) {
+    html += `<div style="padding:4px 12px;font-size:10px;font-weight:700;text-transform:uppercase;
+      letter-spacing:.06em;color:#9ca3af;margin-top:4px;">🔴 Desligados (${desligados.length})</div>`;
+    desligados.forEach(v => {
+      html += veiculoItem(v, false);
+    });
+  }
+  if (!filtered.length) {
+    html = `<div style="padding:24px;text-align:center;font-size:12px;color:#9ca3af;">
+      Nenhum veículo encontrado</div>`;
+  }
+  list.innerHTML = html;
+}
+
+function veiculoItem(v, ign) {
+  const lat = v.lat ?? v.latitude;
+  const lng = v.lng ?? v.longitude;
+  const hasPosicao = lat && lng;
+  return `<div class="sidebar-item" id="si-v-${v.id}"
+    onclick="focusVeiculo(${v.id}, ${lat || 0}, ${lng || 0}, ${hasPosicao})">
+    <span class="item-dot ${ign ? 'on' : 'off'}"></span>
+    <div class="item-body">
+      <div class="item-title">${esc(v.placa || '–')}</div>
+      <div class="item-sub">${esc(v.tipo || v.icone || '')}${hasPosicao ? '' : ' · sem posição'}</div>
+    </div>
+  </div>`;
+}
+
+/* ── Sidebar: lista de cidades ───────────────────────────────────────────── */
+function buildCidadesList(cidades) {
+  const list = document.getElementById('sidebar-list');
+  const q = filterText.toLowerCase();
+  const filtered = cidades.filter(c =>
+    !q || c.nome.toLowerCase().includes(q)
+  );
+
+  let html = '';
+  if (!filtered.length) {
+    html = `<div style="padding:24px;text-align:center;font-size:12px;color:#9ca3af;">
+      Nenhuma cidade cadastrada.<br><br>
+      <a href="/admin/core/cidadeentrega/add/" style="color:#3b82f6;font-weight:600;">
+        Adicionar cidade →
+      </a></div>`;
+  } else {
+    filtered.forEach(c => {
+      const ativa = c.ativa_semana;
+      html += `<div class="sidebar-item" id="si-c-${c.id}"
+        onclick="focusCidade(${c.id})">
+        <span style="display:inline-block;width:10px;height:10px;border-radius:3px;
+          background:${c.cor || '#3b82f6'};flex-shrink:0;"></span>
+        <div class="item-body">
+          <div class="item-title">${esc(c.nome)}</div>
+          <div class="item-sub">${ativa ? '✅ Ativa' : '⬜ Inativa'} · ${(c.poligono || []).length} vértices</div>
+        </div>
+        <button class="cidade-toggle ${ativa ? 'on' : 'off'}" title="Alternar semana"
+          onclick="event.stopPropagation(); toggleCidade(${c.id}, this)">
+        </button>
+      </div>`;
+    });
+  }
+  list.innerHTML = html;
+}
+
+/* ── Interações ──────────────────────────────────────────────────────────── */
+function focusVeiculo(id, lat, lng, hasPosicao) {
+  highlightSidebarItem('v-' + id);
+  if (!hasPosicao) return;
+  map.setView([lat, lng], 14, { animate: true });
+  // Abre popup do marker correspondente
+  markerLayer.eachLayer(l => {
+    if (l._veiculoId === id) {
+      l.openPopup();
+    }
+  });
+}
+
+function focusCidade(id) {
+  highlightSidebarItem('c-' + id);
+  cidadeLayer.eachLayer(l => {
+    if (l._cidadeId === id) {
+      map.fitBounds(l.getBounds(), { padding: [40, 40], animate: true });
+      l.openPopup();
+    }
+  });
+}
+
+function highlightSidebarItem(key) {
+  document.querySelectorAll('.sidebar-item.highlight').forEach(el => el.classList.remove('highlight'));
+  const el = document.getElementById('si-' + key);
+  if (el) {
+    el.classList.add('highlight');
+    el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+}
+
+function toggleCidade(pk, btn) {
+  fetch(`/admin/mapa-api/cidades/${pk}/toggle/`, {
+    method: 'POST',
+    headers: { 'X-CSRFToken': getCsrf() },
+  })
+  .then(r => r.json())
+  .then(data => {
+    const ativa = data.ativa_semana;
+    btn.className = `cidade-toggle ${ativa ? 'on' : 'off'}`;
+    // Atualiza estado local
+    const c = cidadesData.find(c => c.id === pk);
+    if (c) {
+      c.ativa_semana = ativa;
+      renderCidades(cidadesData);
+      buildCidadesList(cidadesData);
+    }
+  })
+  .catch(() => alert('Erro ao alterar cidade.'));
+}
+
+function switchTab(tab) {
+  currentTab = tab;
+  filterText = '';
+  document.getElementById('sidebar-filter').value = '';
+  document.querySelectorAll('.sidebar-tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.tab === tab);
+  });
+  if (tab === 'veiculos') buildVeiculosList(veiculosData);
+  else buildCidadesList(cidadesData);
+}
+
+function filterList() {
+  filterText = document.getElementById('sidebar-filter').value.trim();
+  if (currentTab === 'veiculos') buildVeiculosList(veiculosData);
+  else buildCidadesList(cidadesData);
+}
+
+/* ── Carrega dados ────────────────────────────────────────────────────────── */
+function loadData() {
+  document.getElementById('mapa-loading').style.display = 'flex';
+  document.getElementById('btn-refresh').disabled = true;
+
+  Promise.all([
+    fetch(API_VEICULOS, { credentials: 'same-origin' }).then(r => r.json()),
+    fetch(API_CIDADES,  { credentials: 'same-origin' }).then(r => r.json()),
+  ])
+  .then(([vData, cData]) => {
+    veiculosData = vData.veiculos || [];
+    cidadesData  = cData.cidades  || [];
+
+    renderVeiculos(veiculosData);
+    renderCidades(cidadesData);
+
+    const ligados = veiculosData.filter(v => v.ignicao === 1 || v.ignicao === true).length;
+    document.getElementById('sb-on').textContent  = ligados;
+    document.getElementById('sb-off').textContent = veiculosData.length - ligados;
+
+    const ts = vData.ultima_atualizacao
+      ? new Date(vData.ultima_atualizacao).toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'})
+      : '–';
+    document.getElementById('status-text').textContent =
+      `${veiculosData.length} veículos · atualizado ${ts}`;
+
+    if (currentTab === 'veiculos') buildVeiculosList(veiculosData);
+    else buildCidadesList(cidadesData);
+  })
+  .catch(err => {
+    document.getElementById('status-text').textContent = 'Erro ao carregar dados';
+    console.error('Mapa loadData error:', err);
+  })
+  .finally(() => {
+    document.getElementById('mapa-loading').style.display = 'none';
+    document.getElementById('btn-refresh').disabled = false;
+
+    // Reinicia timer de auto-refresh
+    clearTimeout(refreshTimer);
+    refreshTimer = setTimeout(loadData, REFRESH_MS);
+  });
+}
+
+/* ── Utilitários ─────────────────────────────────────────────────────────── */
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function getCsrf() {
+  return document.cookie.split(';').map(c => c.trim())
+    .find(c => c.startsWith('csrftoken='))?.split('=')[1] || '';
+}
+
+/* ── Boot ─────────────────────────────────────────────────────────────────── */
+document.addEventListener('DOMContentLoaded', () => {
+  initMap();
+  loadData();
+});
+
+// Exponha para chamadas inline (onclick)
+window.switchTab      = switchTab;
+window.filterList     = filterList;
+window.focusVeiculo   = focusVeiculo;
+window.focusCidade    = focusCidade;
+window.toggleCidade   = toggleCidade;
+
+})();
+</script>
+{% endblock %}

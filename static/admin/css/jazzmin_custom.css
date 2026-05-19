@@ -1,0 +1,364 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   Jazzmin Custom — Fertran Filial 16
+   Modo CLARO:  sidebar navy + topbar branca + fundo cinza-claro
+   Modo ESCURO: sidebar ainda mais escura + fundo slate + cards escuros
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Variáveis ──────────────────────────────────────────────────────────────*/
+:root {
+  --f16-sidebar:        #1e2a3a;
+  --f16-sidebar-hover:  #2d3f54;
+  --f16-sidebar-active: #3b82f6;
+  --f16-sidebar-text:   #cbd5e1;
+  --f16-sidebar-muted:  #64748b;
+  --f16-brand-bg:       #162130;
+  --f16-topbar:         #ffffff;
+  --f16-border:         #e5e7eb;
+  --f16-bg:             #f0f2f5;
+  --f16-card:           #ffffff;
+  --f16-text:           #111827;
+  --f16-muted:          #6b7280;
+}
+
+/* ── Sidebar ────────────────────────────────────────────────────────────────*/
+.main-sidebar,
+.main-sidebar .sidebar {
+  background: var(--f16-sidebar) !important;
+}
+
+/* Área do logo/brand */
+.main-sidebar .brand-link {
+  background: var(--f16-brand-bg) !important;
+  border-bottom: 1px solid #0d1921 !important;
+  color: #e2e8f0 !important;
+}
+.main-sidebar .brand-link:hover {
+  background: #1a2636 !important;
+}
+.main-sidebar .brand-link .brand-text {
+  color: #e2e8f0 !important;
+  font-weight: 700;
+  font-size: 15px;
+}
+
+/* Itens de navegação */
+.sidebar-dark-primary .nav-sidebar > .nav-item > .nav-link {
+  color: var(--f16-sidebar-text) !important;
+  border-radius: 6px;
+  margin: 1px 8px;
+}
+.sidebar-dark-primary .nav-sidebar > .nav-item > .nav-link .nav-icon {
+  color: #94a3b8 !important;
+}
+.sidebar-dark-primary .nav-sidebar > .nav-item > .nav-link:hover {
+  background: var(--f16-sidebar-hover) !important;
+  color: #fff !important;
+}
+.sidebar-dark-primary .nav-sidebar > .nav-item > .nav-link:hover .nav-icon {
+  color: #e2e8f0 !important;
+}
+
+/* Item ativo */
+.sidebar-dark-primary .nav-sidebar > .nav-item > .nav-link.active,
+.sidebar-dark-primary .nav-sidebar > .nav-item.menu-open > .nav-link {
+  background: var(--f16-sidebar-active) !important;
+  color: #fff !important;
+  box-shadow: 0 2px 8px rgba(59,130,246,.35);
+}
+.sidebar-dark-primary .nav-sidebar > .nav-item > .nav-link.active .nav-icon {
+  color: #fff !important;
+}
+
+/* Sub-itens (treeview) */
+.sidebar-dark-primary .nav-treeview > .nav-item > .nav-link {
+  color: #94a3b8 !important;
+  padding-left: 2.5rem;
+}
+.sidebar-dark-primary .nav-treeview > .nav-item > .nav-link:hover {
+  background: var(--f16-sidebar-hover) !important;
+  color: #e2e8f0 !important;
+}
+.sidebar-dark-primary .nav-treeview > .nav-item > .nav-link.active {
+  background: rgba(59,130,246,.25) !important;
+  color: #93c5fd !important;
+}
+
+/* Cabeçalhos de seção */
+.nav-sidebar .nav-header {
+  color: var(--f16-sidebar-muted) !important;
+  font-size: 10px;
+  letter-spacing: .1em;
+  padding: 6px 16px 2px;
+}
+
+/* Scrollbar da sidebar */
+.main-sidebar .sidebar::-webkit-scrollbar { width: 4px; }
+.main-sidebar .sidebar::-webkit-scrollbar-track { background: var(--f16-sidebar); }
+.main-sidebar .sidebar::-webkit-scrollbar-thumb { background: var(--f16-sidebar-hover); border-radius: 4px; }
+
+/* ── Topbar ──────────────────────────────────────────────────────────────────*/
+.main-header.navbar {
+  background: var(--f16-topbar) !important;
+  border-bottom: 1px solid var(--f16-border) !important;
+  box-shadow: 0 1px 4px rgba(0,0,0,.07) !important;
+}
+.main-header .navbar-nav .nav-link,
+.main-header .navbar-nav .nav-link:hover {
+  color: #374151 !important;
+}
+.main-header .navbar-nav .nav-link.active {
+  color: var(--f16-sidebar-active) !important;
+}
+
+/* Breadcrumb do topbar */
+.content-header h1 { font-size: 17px; font-weight: 600; }
+.breadcrumb-item, .breadcrumb-item.active { font-size: 12px; color: var(--f16-muted); }
+.breadcrumb-item a { color: var(--f16-sidebar-active); }
+
+/* ── Área de conteúdo ────────────────────────────────────────────────────────*/
+.content-wrapper, .wrapper {
+  background: var(--f16-bg) !important;
+}
+
+/* ── Cards ───────────────────────────────────────────────────────────────────*/
+.card {
+  border: 1px solid var(--f16-border) !important;
+  border-radius: 10px !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,.05) !important;
+}
+.card-header {
+  border-radius: 10px 10px 0 0 !important;
+  border-bottom-color: var(--f16-border) !important;
+  font-weight: 600;
+  font-size: 13px;
+  background: #fff !important;
+  padding: 10px 16px !important;
+}
+.card-footer {
+  background: #f9fafb !important;
+  border-top-color: var(--f16-border) !important;
+  border-radius: 0 0 10px 10px !important;
+}
+
+/* ── Tabela de listagem do admin ─────────────────────────────────────────────*/
+#changelist-form .results {
+  border-radius: 0 0 10px 10px;
+  overflow: hidden;
+}
+#result_list thead th,
+#result_list thead td {
+  background: #f8fafc !important;
+  color: #374151 !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  border-bottom: 2px solid var(--f16-border) !important;
+  padding: 8px 12px !important;
+  white-space: nowrap;
+}
+#result_list tbody tr td {
+  border-bottom: 1px solid #f3f4f6 !important;
+  vertical-align: middle !important;
+  font-size: 12.5px !important;
+  padding: 7px 12px !important;
+}
+#result_list tbody tr:hover td {
+  background: #f8fafc !important;
+}
+#result_list tbody tr:last-child td {
+  border-bottom: none !important;
+}
+
+/* Checkbox de seleção */
+#result_list .action-checkbox { width: 16px; }
+
+/* ── Filtros laterais ────────────────────────────────────────────────────────*/
+#changelist-filter {
+  background: var(--f16-card) !important;
+  border: 1px solid var(--f16-border) !important;
+  border-radius: 10px !important;
+  padding: 0 !important;
+  overflow: hidden;
+}
+#changelist-filter h2 {
+  background: #f8fafc !important;
+  border-bottom: 1px solid var(--f16-border) !important;
+  padding: 10px 14px !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: #374151 !important;
+  margin: 0 !important;
+}
+#changelist-filter h3 {
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  color: var(--f16-muted) !important;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  margin: 0 !important;
+  padding: 10px 14px 4px !important;
+}
+#changelist-filter ul { padding: 0 6px 8px !important; margin: 0 !important; }
+#changelist-filter ul li { padding: 2px 0; }
+#changelist-filter ul li a {
+  color: #374151 !important;
+  font-size: 12px !important;
+  padding: 3px 8px !important;
+  border-radius: 5px !important;
+  display: block;
+}
+#changelist-filter ul li a:hover { background: #f0f4ff !important; color: var(--f16-sidebar-active) !important; }
+#changelist-filter ul li.selected a { background: #eff6ff !important; color: #1d4ed8 !important; font-weight: 600; }
+
+/* ── Botões ──────────────────────────────────────────────────────────────────*/
+.btn-primary, input[type=submit].default {
+  background: var(--f16-sidebar-active) !important;
+  border-color: var(--f16-sidebar-active) !important;
+  border-radius: 6px !important;
+}
+.btn-primary:hover { background: #2563eb !important; border-color: #2563eb !important; }
+.addlink, .changelink { color: var(--f16-sidebar-active) !important; }
+
+/* ── Paginação ───────────────────────────────────────────────────────────────*/
+.paginator .this-page {
+  background: var(--f16-sidebar-active) !important;
+  color: #fff !important;
+  border-color: var(--f16-sidebar-active) !important;
+  border-radius: 5px !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MODO ESCURO — Jazzmin >= 3 usa Bootstrap 5: data-bs-theme="dark" no <html>
+   O toggle sol/lua (admin_extra.js) seta document.documentElement.dataset.bsTheme
+   ═══════════════════════════════════════════════════════════════════════════ */
+[data-bs-theme="dark"] {
+  --f16-sidebar:        #0f172a;
+  --f16-sidebar-hover:  #1e2d45;
+  --f16-brand-bg:       #090f1a;
+  --f16-topbar:         #1f2937;
+  --f16-border:         #374151;
+  --f16-bg:             #111827;
+  --f16-card:           #1f2937;
+  --f16-text:           #f3f4f6;
+  --f16-muted:          #9ca3af;
+}
+
+[data-bs-theme="dark"] .content-wrapper,
+[data-bs-theme="dark"] .wrapper { background: #111827 !important; }
+
+[data-bs-theme="dark"] .card,
+[data-bs-theme="dark"] .card-header,
+[data-bs-theme="dark"] .card-footer { background: #1f2937 !important; border-color: #374151 !important; }
+
+[data-bs-theme="dark"] .main-header.navbar,
+[data-bs-theme="dark"] .navbar {
+  background: #1f2937 !important;
+  border-bottom-color: #374151 !important;
+}
+[data-bs-theme="dark"] .main-header .navbar-nav .nav-link,
+[data-bs-theme="dark"] .main-header .navbar-nav .nav-link:hover { color: #d1d5db !important; }
+
+/* Breadcrumb */
+[data-bs-theme="dark"] .content-header h1 { color: #f3f4f6 !important; }
+[data-bs-theme="dark"] .breadcrumb-item,
+[data-bs-theme="dark"] .breadcrumb-item.active { color: #6b7280 !important; }
+
+/* Sidebar */
+[data-bs-theme="dark"] .main-sidebar,
+[data-bs-theme="dark"] .main-sidebar .sidebar {
+  background: var(--f16-sidebar) !important;
+}
+[data-bs-theme="dark"] .main-sidebar .brand-link {
+  background: var(--f16-brand-bg) !important;
+  border-bottom-color: #0d1921 !important;
+}
+
+/* Formulários */
+[data-bs-theme="dark"] input[type=text],
+[data-bs-theme="dark"] input[type=number],
+[data-bs-theme="dark"] input[type=email],
+[data-bs-theme="dark"] input[type=password],
+[data-bs-theme="dark"] input[type=date],
+[data-bs-theme="dark"] input[type=url],
+[data-bs-theme="dark"] select,
+[data-bs-theme="dark"] textarea {
+  background: #111827 !important;
+  border-color: #374151 !important;
+  color: #e5e7eb !important;
+}
+
+/* Select2 e widgets django */
+[data-bs-theme="dark"] .select2-container--default .select2-selection--single,
+[data-bs-theme="dark"] .select2-container--default .select2-selection--multiple {
+  background: #111827 !important;
+  border-color: #374151 !important;
+  color: #e5e7eb !important;
+}
+[data-bs-theme="dark"] .select2-dropdown {
+  background: #1f2937 !important;
+  border-color: #374151 !important;
+}
+[data-bs-theme="dark"] .select2-results__option { color: #e5e7eb !important; }
+[data-bs-theme="dark"] .select2-results__option--highlighted { background: #2563eb !important; }
+
+/* Módulos/fieldsets */
+[data-bs-theme="dark"] .module h2,
+[data-bs-theme="dark"] fieldset.module h2 {
+  background: #1e3a5f !important;
+  color: #93c5fd !important;
+}
+[data-bs-theme="dark"] .module,
+[data-bs-theme="dark"] fieldset.module {
+  border-color: #374151 !important;
+  background: #1f2937 !important;
+}
+[data-bs-theme="dark"] .form-row,
+[data-bs-theme="dark"] .form-group { border-bottom-color: #374151 !important; }
+[data-bs-theme="dark"] label { color: #d1d5db !important; }
+[data-bs-theme="dark"] .help { color: #9ca3af !important; }
+
+/* Paginação */
+[data-bs-theme="dark"] .paginator { color: #9ca3af !important; }
+[data-bs-theme="dark"] .paginator a { color: #93c5fd !important; }
+
+/* Tabelas */
+[data-bs-theme="dark"] #result_list thead th,
+[data-bs-theme="dark"] #result_list thead td {
+  background: #111827 !important;
+  color: #d1d5db !important;
+  border-bottom-color: #374151 !important;
+}
+[data-bs-theme="dark"] #result_list tbody tr td {
+  border-bottom-color: #374151 !important;
+  color: #e5e7eb !important;
+}
+[data-bs-theme="dark"] #result_list tbody tr:hover td { background: #374151 !important; }
+
+/* Filtros */
+[data-bs-theme="dark"] #changelist-filter {
+  background: #1f2937 !important;
+  border-color: #374151 !important;
+}
+[data-bs-theme="dark"] #changelist-filter h2 {
+  background: #111827 !important;
+  border-bottom-color: #374151 !important;
+  color: #d1d5db !important;
+}
+[data-bs-theme="dark"] #changelist-filter h3 { color: #6b7280 !important; }
+[data-bs-theme="dark"] #changelist-filter ul li a { color: #d1d5db !important; }
+[data-bs-theme="dark"] #changelist-filter ul li a:hover { background: #1e3a5f !important; }
+[data-bs-theme="dark"] #changelist-filter ul li.selected a { background: #1e3a5f !important; color: #93c5fd !important; }
+
+/* Badges — mantém legibilidade no escuro */
+[data-bs-theme="dark"] span[style*="background:#dcfce7"] { background: #14532d !important; color: #86efac !important; }
+[data-bs-theme="dark"] span[style*="background:#fef9c3"] { background: #713f12 !important; color: #fde68a !important; }
+[data-bs-theme="dark"] span[style*="background:#eff6ff"] { background: #1e3a5f !important; color: #93c5fd !important; }
+[data-bs-theme="dark"] span[style*="background:#f5f3ff"] { background: #3b1f6e !important; color: #c4b5fd !important; }
+[data-bs-theme="dark"] span[style*="background:#f1f5f9"] { background: #1e293b !important; color: #94a3b8 !important; }
+[data-bs-theme="dark"] span[style*="background:#fff7ed"] { background: #7c2d12 !important; color: #fdba74 !important; }
+[data-bs-theme="dark"] span[style*="background:#fdf2f8"] { background: #500724 !important; color: #f9a8d4 !important; }
+[data-bs-theme="dark"] span[style*="background:#ecfeff"] { background: #164e63 !important; color: #67e8f9 !important; }
+[data-bs-theme="dark"] span[style*="background:#fef2f2"] { background: #7f1d1d !important; color: #fca5a5 !important; }

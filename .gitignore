@@ -1,0 +1,65 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+env/
+
+# Django
+*.log
+local_settings.py
+db.sqlite3
+staticfiles/
+media/
+
+# Env
+.env
+.env.local
+.env.dev
+.env.staging
+*.env
+.env.*
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+*.pid
+
+#scripts
+upload_xmls.py
+
+# Gunicorn e sockets
+*.ctl
+*.sock
+
+# Adicione isso ao arquivo .gitignore na raiz do projeto
+nginx/ssl/
+nginx/nginx.conf
+minio/
+.env
+# Arquivos gerados / scripts locais
+*.xlsx
+*.docx
+seed_dev.py
+lista_motoristas.xlsx
+
+# Modulo removido (mantido em disco por seguranca)
+regras_api/
+
+# Arquivos de desenvolvimento local — não vão para o repositório
+import_motoristas.py
+docker-compose.dev.yml
+.dockerignore
+inoprime_api/.env
