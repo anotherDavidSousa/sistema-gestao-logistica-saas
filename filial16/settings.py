@@ -311,4 +311,25 @@ GOOGLE_SHEETS_WORKSHEET_NAME = os.environ.get('GOOGLE_SHEETS_WORKSHEET_NAME', 'C
 # ── Segurança extra em produção (DEBUG=False) ────────────────────────────────
 if not DEBUG:
     # Proxy/TLS: Cloudflare já termina o SSL antes do Nginx
-    SECURE_PROXY_SSL_HEADER    = ('HTTP_X_FORWARDED
+    SECURE_PROXY_SSL_HEADER    = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SECURE_SSL_REDIRECT        = True
+
+    # Cookies: só trafegam via HTTPS e inacessíveis via JavaScript
+    SESSION_COOKIE_SECURE      = True
+    SESSION_COOKIE_HTTPONLY    = True
+    SESSION_COOKIE_AGE         = 28800   # 8 horas (padrão Django é 2 semanas)
+    SESSION_COOKIE_SAMESITE    = 'Lax'
+    CSRF_COOKIE_SECURE         = True
+    CSRF_COOKIE_HTTPONLY       = True
+    CSRF_COOKIE_SAMESITE       = 'Lax'
+
+    # Headers de proteção
+    X_FRAME_OPTIONS            = 'DENY'
+    SECURE_CONTENT_TYPE_NOSNIFF = True   # impede MIME-sniffing (XSS via upload)
+    SECURE_REFERRER_POLICY     = 'strict-origin-when-cross-origin'
+
+    # HSTS: força HTTPS no navegador — aumentar gradualmente após confirmar estabilidade
+    # 3600 (1h) → 86400 (1d) → 604800 (1sem) → 31536000 (1ano)
+    SECURE_HSTS_SECONDS           = 3600
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD           = False  # habilitar só com valor anual
