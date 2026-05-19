@@ -872,4 +872,11 @@ body.dark-mode #f16-mapa-container .leaflet-tile { filter: invert(1) hue-rotate(
     if (icon) {
       icon.className = hidden ? 'fas fa-list-ul' : 'fas fa-list';
     }
-    // Força o Leaflet a recalcular o tam
+    // Força o Leaflet a recalcular o tamanho após a transição
+    if (lmap) setTimeout(function () { lmap.invalidateSize(); }, 300);
+  };
+  window.addEventListener('scroll', maybInitMap, { passive: true });
+  setTimeout(maybInitMap, 600);
+})();
+</script>
+{% endblock %} 
