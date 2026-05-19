@@ -15,6 +15,7 @@ from .models import (
     CarretaDocumento,
     ProprietarioDocumento,
     MotoristaDocumento,
+    CidadeEntrega,
 )
 
 
@@ -248,29 +249,29 @@ class HistoricoGestorAdmin(admin.ModelAdmin):
     list_display = ("gestor", "cavalo", "data_inicio", "data_fim")
 
 
+# ── CidadeEntrega ─────────────────────────────────────────────────────────────
+
+@admin.register(CidadeEntrega)
+class CidadeEntregaAdmin(admin.ModelAdmin):
+    list_display  = ("nome", "cor", "ativa_semana", "atualizado_em")
+    list_filter   = ("ativa_semana",)
+    search_fields = ("nome",)
+    list_editable = ("ativa_semana",)
+    ordering      = ("nome",)
+    fieldsets = (
+        (None, {
+            "fields": ("nome", "cor", "ativa_semana"),
+        }),
+        ("Polígono do mapa", {
+            "fields": ("poligono",),
+            "description": "Lista de pares [[lat, lng], ...] definindo os vértices da zona.",
+            "classes": ("collapse",),
+        }),
+    )
+
+
 # ── LogEntry (histórico de ações do admin) ────────────────────────────────────
 
 @admin.register(LogEntry)
 class LogEntryAdmin(admin.ModelAdmin):
-    list_display   = ("action_time", "user", "content_type", "object_repr", "action_flag_display", "change_message")
-    list_filter    = ("action_flag", "content_type")
-    search_fields  = ("user__username", "object_repr", "change_message")
-    date_hierarchy = "action_time"
-    readonly_fields = (
-        "action_time", "user", "content_type", "object_id",
-        "object_repr", "action_flag", "change_message",
-    )
-
-    def action_flag_display(self, obj):
-        flags = {1: "✚ Adição", 2: "✎ Alteração", 3: "✖ Exclusão"}
-        return flags.get(obj.action_flag, obj.action_flag)
-    action_flag_display.short_description = "Ação"
-
-    def has_add_permission(self, request):
-        return False
-
-    def has_change_permission(self, request, obj=None):
-        return False
-
-    def has_delete_permission(self, request, obj=None):
-        return request.user.is_superuser
+    list_display   = ("action_time", "user", "content_type", "obj
