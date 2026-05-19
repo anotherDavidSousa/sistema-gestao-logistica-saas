@@ -25,7 +25,7 @@ _UFS_BR = {
 }
 
 
-# ── Inlines de documentos ─────────────────────────────────────────────────────
+# ── Inlines de documentos ─────────────────────────────────────────────────────────
 
 class ProprietarioDocumentoInline(admin.TabularInline):
     model = ProprietarioDocumento
@@ -47,7 +47,7 @@ class MotoristaDocumentoInline(admin.TabularInline):
     extra = 1
 
 
-# ── Helpers de ordenacao ──────────────────────────────────────────────────────
+# ── Helpers de ordenacao ──────────────────────────────────────────────────────────
 
 def _cavalos_queryset_ordenado(queryset, filtrar_apenas_com_carreta=False):
     qs = queryset
@@ -91,7 +91,7 @@ def _cavalos_queryset_ordenado(queryset, filtrar_apenas_com_carreta=False):
     )
 
 
-# ── Form customizado do Cavalo (adiciona campo motorista) ─────────────────────
+# ── Form customizado do Cavalo (adiciona campo motorista) ─────────────────────────────────────
 
 class CavaloAdminForm(forms.ModelForm):
     motorista = forms.ModelChoiceField(
@@ -113,7 +113,7 @@ class CavaloAdminForm(forms.ModelForm):
                 pass
 
 
-# ── Proprietario ──────────────────────────────────────────────────────────────
+# ── Proprietario ────────────────────────────────────────────────────────────────────────────
 
 @admin.register(Proprietario)
 class ProprietarioAdmin(admin.ModelAdmin):
@@ -122,14 +122,14 @@ class ProprietarioAdmin(admin.ModelAdmin):
     inlines        = [ProprietarioDocumentoInline]
 
 
-# ── Gestor ────────────────────────────────────────────────────────────────────
+# ── Gestor ────────────────────────────────────────────────────────────────────────────────
 
 @admin.register(Gestor)
 class GestorAdmin(admin.ModelAdmin):
     list_display = ("nome", "meta_faturamento")
 
 
-# ── Cavalo ────────────────────────────────────────────────────────────────────
+# ── Cavalo ─────────────────────────────────────────────────────────────────────────────────
 
 class _MotoristaRel:
     """Objeto fake de relacao para o RelatedFieldWidgetWrapper apontar para Motorista."""
@@ -157,8 +157,6 @@ class CavaloAdmin(admin.ModelAdmin):
 
     def get_form(self, request, obj=None, **kwargs):
         form_class = super().get_form(request, obj, **kwargs)
-        # Aplica RelatedFieldWidgetWrapper ao campo motorista
-        # para que tenha os botoes de adicionar, editar e visualizar
         form_class.base_fields["motorista"].widget = RelatedFieldWidgetWrapper(
             form_class.base_fields["motorista"].widget,
             _MotoristaRel(),
@@ -184,7 +182,6 @@ class CavaloAdmin(admin.ModelAdmin):
     def save_model(self, request, obj, form, change):
         super().save_model(request, obj, form, change)
         novo = form.cleaned_data.get("motorista")
-        # Desvincula motorista anterior se trocou
         try:
             atual = Motorista.objects.get(cavalo=obj)
             if atual != novo:
@@ -192,16 +189,14 @@ class CavaloAdmin(admin.ModelAdmin):
                 atual.save()
         except Motorista.DoesNotExist:
             pass
-        # Vincula novo motorista
         if novo:
-            # Se estava vinculado a outro cavalo, desvincula primeiro
             if novo.cavalo_id and novo.cavalo_id != obj.pk:
                 Motorista.objects.filter(pk=novo.pk).update(cavalo=None)
             novo.cavalo = obj
             novo.save()
 
 
-# ── Carreta ───────────────────────────────────────────────────────────────────
+# ── Carreta ────────────────────────────────────────────────────────────────────────────────
 
 @admin.register(Carreta)
 class CarretaAdmin(admin.ModelAdmin):
@@ -219,7 +214,7 @@ class CarretaAdmin(admin.ModelAdmin):
         return super().get_search_results(request, queryset, normalized)
 
 
-# ── Motorista ─────────────────────────────────────────────────────────────────
+# ── Motorista ─────────────────────────────────────────────────────────────────────────────────
 
 @admin.register(Motorista)
 class MotoristaAdmin(admin.ModelAdmin):
@@ -233,7 +228,7 @@ class MotoristaAdmin(admin.ModelAdmin):
         return super().get_inline_instances(request, obj)
 
 
-# ── LogCarreta ────────────────────────────────────────────────────────────────
+# ── LogCarreta ────────────────────────────────────────────────────────────────────────────────
 
 @admin.register(LogCarreta)
 class LogCarretaAdmin(admin.ModelAdmin):
@@ -242,14 +237,14 @@ class LogCarretaAdmin(admin.ModelAdmin):
     date_hierarchy = "data_hora"
 
 
-# ── HistoricoGestor ───────────────────────────────────────────────────────────
+# ── HistoricoGestor ─────────────────────────────────────────────────────────────────────────────
 
 @admin.register(HistoricoGestor)
 class HistoricoGestorAdmin(admin.ModelAdmin):
     list_display = ("gestor", "cavalo", "data_inicio", "data_fim")
 
 
-# ── CidadeEntrega ─────────────────────────────────────────────────────────────
+# ── CidadeEntrega ─────────────────────────────────────────────────────────────────────────────
 
 @admin.register(CidadeEntrega)
 class CidadeEntregaAdmin(admin.ModelAdmin):
@@ -262,16 +257,37 @@ class CidadeEntregaAdmin(admin.ModelAdmin):
         (None, {
             "fields": ("nome", "cor", "ativa_semana"),
         }),
-        ("Polígono do mapa", {
+        ("Poligono do mapa", {
             "fields": ("poligono",),
-            "description": "Lista de pares [[lat, lng], ...] definindo os vértices da zona.",
+            "description": "Lista de pares [[lat, lng], ...] definindo os vertices da zona.",
             "classes": ("collapse",),
         }),
     )
 
 
-# ── LogEntry (histórico de ações do admin) ────────────────────────────────────
+# ── LogEntry (historico de acoes do admin) ──────────────────────────────────────────────────────────────────────
 
 @admin.register(LogEntry)
 class LogEntryAdmin(admin.ModelAdmin):
-    list_display   = ("action_time", "user", "content_type", "obj
+    list_display   = ("action_time", "user", "content_type", "object_repr", "action_flag_display", "change_message")
+    list_filter    = ("action_flag", "content_type")
+    search_fields  = ("user__username", "object_repr", "change_message")
+    date_hierarchy = "action_time"
+    readonly_fields = (
+        "action_time", "user", "content_type", "object_id",
+        "object_repr", "action_flag", "change_message",
+    )
+
+    def action_flag_display(self, obj):
+        flags = {1: "Adicao", 2: "Alteracao", 3: "Exclusao"}
+        return flags.get(obj.action_flag, obj.action_flag)
+    action_flag_display.short_description = "Acao"
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return request.user.is_superuser
