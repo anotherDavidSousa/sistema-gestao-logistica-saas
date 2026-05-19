@@ -369,6 +369,9 @@ body.dark-mode #f16-mapa-container .leaflet-tile { filter: invert(1) hue-rotate(
     <div class="f16-panel">
       <div class="f16-panel-header">
         <span class="f16-panel-title"><i class="fas fa-history" style="margin-right:6px;color:#3b82f6"></i>Ações Recentes</span>
+        <a href="/admin/admin/logentry/" class="f16-btn-hoje" style="font-size:11px;text-decoration:none">
+          <i class="fas fa-external-link-alt" style="font-size:10px;margin-right:4px"></i>Ver todas
+        </a>
       </div>
       <ul class="f16-feed" id="f16-feed">
         <li class="f16-loading"><div class="f16-spinner"></div> Carregando…</li>
@@ -554,7 +557,7 @@ body.dark-mode #f16-mapa-container .leaflet-tile { filter: invert(1) hue-rotate(
       for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) & 0xffffffff;
       return colors[Math.abs(h) % colors.length];
     }
-    feed.innerHTML = d.recent.map(e => `
+    feed.innerHTML = d.recent.slice(0, 4).map(e => `
       <li class="f16-feed-item">
         <div class="f16-avatar" style="background:${avatarColor(e.user)}">${e.user_init}</div>
         <div class="f16-feed-body">
@@ -869,11 +872,4 @@ body.dark-mode #f16-mapa-container .leaflet-tile { filter: invert(1) hue-rotate(
     if (icon) {
       icon.className = hidden ? 'fas fa-list-ul' : 'fas fa-list';
     }
-    // Força o Leaflet a recalcular o tamanho após a transição
-    if (lmap) setTimeout(function () { lmap.invalidateSize(); }, 300);
-  };
-  window.addEventListener('scroll', maybInitMap, { passive: true });
-  setTimeout(maybInitMap, 600);
-})();
-</script>
-{% endblock %}
+    // Força o Leaflet a recalcular o tam

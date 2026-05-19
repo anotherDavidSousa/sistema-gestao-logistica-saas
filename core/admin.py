@@ -1,5 +1,6 @@
 from django import forms
 from django.contrib import admin
+from django.contrib.admin.models import LogEntry
 from django.contrib.admin.widgets import RelatedFieldWidgetWrapper
 from django.db.models import Q, Case, When, Value, IntegerField, F, CharField
 from .models import (
@@ -244,4 +245,4 @@ class LogCarretaAdmin(admin.ModelAdmin):
 
 @admin.register(HistoricoGestor)
 class HistoricoGestorAdmin(admin.ModelAdmin):
-    list_display = ("gestor", "cavalo", "data_inicio", "data_fim")
+    list_display =
