@@ -110,9 +110,11 @@ AWS_STORAGE_BUCKET_NAME = _MINIO_BUCKET
 AWS_S3_ENDPOINT_URL = f"{'https' if _MINIO_SSL else 'http'}://{_MINIO_ENDPOINT}"
 AWS_S3_USE_SSL = _MINIO_SSL
 AWS_DEFAULT_ACL = None
-AWS_S3_FILE_OVERWRITE = True
-AWS_LOCATION = ''  # sem prefixo automático
-AWS_QUERYSTRING_AUTH = False
+AWS_S3_FILE_OVERWRITE = False       # nunca sobrescrever arquivos existentes silenciosamente
+AWS_LOCATION = ''                   # sem prefixo automático
+AWS_QUERYSTRING_AUTH = True         # URLs assinadas — arquivos NÃO são públicos
+AWS_S3_SIGNATURE_VERSION = 's3v4'  # assinatura moderna (requerida pelo MinIO)
+AWS_QUERYSTRING_EXPIRE = 3600      # links expiram em 1 hora
 
 # default = MinIO: todos os uploads de media (fotos, documentos de motorista/cavalo/carreta etc.) vão para o bucket
 STORAGES = {
@@ -306,14 +308,7 @@ GOOGLE_SHEETS_CREDENTIALS_PATH = os.environ.get('GOOGLE_SHEETS_CREDENTIALS_PATH'
 GOOGLE_SHEETS_SPREADSHEET_ID = os.environ.get('GOOGLE_SHEETS_SPREADSHEET_ID', '')
 GOOGLE_SHEETS_WORKSHEET_NAME = os.environ.get('GOOGLE_SHEETS_WORKSHEET_NAME', 'Cavalos')
 
-# Segurança extra em produção (DEBUG=False)
-# SECURE_PROXY_SSL_HEADER: informa ao Django que o Cloudflare/Nginx já terminou o TLS
-# SECURE_SSL_REDIRECT: redireciona HTTP -> HTTPS (Nginx já faz, mas garante a camada Django)
-# SESSION_COOKIE_SECURE / CSRF_COOKIE_SECURE: cookies só trafegam via HTTPS
-# X_FRAME_OPTIONS: protege contra Clickjacking
+# ── Segurança extra em produção (DEBUG=False) ────────────────────────────────
 if not DEBUG:
-    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-    SECURE_SSL_REDIRECT = True
-    SESSION_COOKIE_SECURE = True
-    CSRF_COOKIE_SECURE = True
-    X_FRAME_OPTIONS = 'DENY'
+    # Proxy/TLS: Cloudflare já termina o SSL antes do Nginx
+    SECURE_PROXY_SSL_HEADER    = ('HTTP_X_FORWARDED
