@@ -6,15 +6,13 @@
 {% block extrahead %}
 {{ block.super }}
 <style>
-.hist-wrap { max-width: 960px; padding: 16px 0 32px; }
+.hist-wrap { max-width: 1000px; padding: 16px 0 32px; }
 
-/* ── Filtros ─────────────────────────────────────────────────────────────── */
 .hist-filters {
   display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end;
   background: var(--f16-card, #fff);
   border: 1px solid var(--f16-border, #e5e7eb);
-  border-radius: 10px; padding: 16px;
-  margin-bottom: 20px;
+  border-radius: 10px; padding: 16px; margin-bottom: 20px;
 }
 .hist-filters label {
   display: block; font-size: 11px; font-weight: 700;
@@ -38,7 +36,6 @@
 .hist-btn:hover { background: #2563eb; }
 .hist-btn:disabled { background: #93c5fd; cursor: not-allowed; }
 
-/* ── Cards ───────────────────────────────────────────────────────────────── */
 .hist-cards { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; }
 .hist-card {
   flex: 1; min-width: 140px;
@@ -51,7 +48,6 @@
 .hist-card .val { font-size: 28px; font-weight: 800; color: var(--f16-text, #111827); line-height: 1; }
 .hist-card .sub { font-size: 11px; color: var(--f16-text-muted, #6b7280); margin-top: 3px; }
 
-/* ── Secoes ──────────────────────────────────────────────────────────────── */
 .hist-section {
   background: var(--f16-card, #fff);
   border: 1px solid var(--f16-border, #e5e7eb);
@@ -67,8 +63,6 @@
 .hist-section .empty-msg {
   padding: 14px 16px; font-size: 13px; color: var(--f16-text-muted, #9ca3af);
 }
-
-/* ── Tabela de paradas ───────────────────────────────────────────────────── */
 .hist-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .hist-table th {
   text-align: left; padding: 8px 14px;
@@ -83,20 +77,31 @@
 }
 .hist-table tr:last-child td { border-bottom: none; }
 .hist-table tr:hover td { background: var(--f16-surface, #f9fafb); }
-.dur-badge {
-  display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 12px;
-  font-weight: 700; background: #fef3c7; color: #92400e;
+.badge {
+  display: inline-block; padding: 2px 8px; border-radius: 20px;
+  font-size: 12px; font-weight: 700;
 }
+.badge-lar { background: #fef3c7; color: #92400e; }
+.badge-azul { background: #dbeafe; color: #1e40af; }
+.badge-verm { background: #fee2e2; color: #991b1b; }
+.badge-verde { background: #dcfce7; color: #15803d; }
 
-/* ── Tags ────────────────────────────────────────────────────────────────── */
-.tag-list { padding: 12px 16px; display: flex; flex-wrap: wrap; gap: 6px; }
-.tag {
-  display: inline-block; padding: 4px 10px; border-radius: 20px;
-  font-size: 12px; font-weight: 600; background: #dbeafe; color: #1e40af;
+/* Cidades — accordion */
+.cidade-bloco { border-bottom: 1px solid var(--f16-border, #e5e7eb); }
+.cidade-bloco:last-child { border-bottom: none; }
+.cidade-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 16px; cursor: pointer;
+  background: none; border: none; width: 100%; text-align: left;
+  font-size: 13px; color: var(--f16-text, #111827);
+  transition: background .1s;
 }
-.tag.verde { background: #dcfce7; color: #15803d; }
+.cidade-header:hover { background: var(--f16-surface, #f9fafb); }
+.cidade-header .nome { font-weight: 700; flex: 1; }
+.cidade-header .cnt { font-size: 11px; color: var(--f16-text-muted, #6b7280); }
+.cidade-detail { display: none; padding: 0 16px 12px; }
+.cidade-detail.open { display: block; }
 
-/* ── Estado ──────────────────────────────────────────────────────────────── */
 #hist-aviso {
   padding: 14px 16px; font-size: 13px;
   background: var(--f16-card, #fff);
@@ -121,7 +126,6 @@
 {% block content %}
 <div class="hist-wrap">
 
-  <!-- Filtros -->
   <div class="hist-filters">
     <div>
       <label for="sel-placa">Veiculo</label>
@@ -142,20 +146,17 @@
     </button>
   </div>
 
-  <!-- Resultado -->
   <div id="hist-resultado" style="display:none;">
-
-    <!-- Cards -->
     <div class="hist-cards">
       <div class="hist-card">
-        <div class="lbl"><i class="fas fa-road"></i> KM rodados</div>
+        <div class="lbl"><i class="fas fa-road"></i> KM estimados</div>
         <div class="val" id="s-km">—</div>
         <div class="sub" id="s-periodo"></div>
       </div>
       <div class="hist-card">
-        <div class="lbl"><i class="fas fa-map-marker-alt"></i> Registros</div>
+        <div class="lbl"><i class="fas fa-satellite"></i> Rastreamentos</div>
         <div class="val" id="s-pontos">—</div>
-        <div class="sub">snapshots no periodo</div>
+        <div class="sub">posicoes capturadas (1 a cada 5 min)</div>
       </div>
       <div class="hist-card">
         <div class="lbl"><i class="fas fa-parking"></i> Paradas longas</div>
@@ -165,34 +166,29 @@
       <div class="hist-card">
         <div class="lbl"><i class="fas fa-city"></i> Cidades visitadas</div>
         <div class="val" id="s-cidades">—</div>
-        <div class="sub">cidades ativas</div>
+        <div class="sub">cidades ativas no periodo</div>
       </div>
     </div>
 
-    <!-- Tabela de paradas -->
-    <div class="hist-section" id="sec-paradas">
+    <div class="hist-section">
       <h3><i class="fas fa-parking"></i> Paradas longas (ignicao off &ge; 15 min)</h3>
       <div id="corpo-paradas"></div>
     </div>
 
-    <!-- Cidades visitadas -->
     <div class="hist-section" id="sec-cidades">
       <h3><i class="fas fa-city"></i> Cidades ativas visitadas</h3>
-      <div id="corpo-cidades" class="tag-list"></div>
+      <div id="corpo-cidades"></div>
     </div>
 
-    <!-- Locais fixos -->
     <div class="hist-section" id="sec-locais" style="display:none;">
       <h3><i class="fas fa-industry"></i> Locais fixos visitados</h3>
-      <div id="corpo-locais" class="tag-list"></div>
+      <div id="corpo-locais" style="padding:12px 16px;display:flex;flex-wrap:wrap;gap:6px;"></div>
     </div>
-
   </div>
 
-  <!-- Aviso / loading -->
   <div id="hist-aviso">
     <i class="fas fa-route" style="color:#d1d5db;margin-right:6px;"></i>
-    Selecione um veiculo e periodo para ver o historico.
+    Selecione um veiculo (agregado) e o periodo desejado.
   </div>
 
 </div>
@@ -252,45 +248,70 @@ async function buscar() {
 
     const s = data.stats;
 
-    // Cards
     document.getElementById('s-km').textContent      = s.km_total.toLocaleString('pt-BR') + ' km';
-    document.getElementById('s-pontos').textContent  = s.total_pontos;
+    document.getElementById('s-pontos').textContent  = s.total_rastreamentos;
     document.getElementById('s-paradas').textContent = s.paradas_longas.length;
     document.getElementById('s-cidades').textContent = s.cidades_visitadas.length;
     document.getElementById('s-periodo').textContent = s.periodo_inicio + ' — ' + s.periodo_fim;
 
-    // Tabela de paradas
+    // Paradas longas
     const corpoPar = document.getElementById('corpo-paradas');
     if (s.paradas_longas.length === 0) {
       corpoPar.innerHTML = '<div class="empty-msg">Nenhuma parada longa detectada neste periodo.</div>';
     } else {
       let rows = s.paradas_longas.map((p, i) =>
-        '<tr>'
-        + '<td>' + (i + 1) + '</td>'
+        '<tr><td>' + (i+1) + '</td>'
         + '<td>' + p.inicio + '</td>'
         + '<td>' + p.fim + '</td>'
-        + '<td><span class="dur-badge">' + durStr(p.duracao_min) + '</span></td>'
-        + '</tr>'
+        + '<td><span class="badge badge-lar">' + durStr(p.duracao_min) + '</span></td></tr>'
       ).join('');
       corpoPar.innerHTML =
-        '<table class="hist-table">'
-        + '<thead><tr><th>#</th><th>Inicio</th><th>Fim</th><th>Duracao</th></tr></thead>'
-        + '<tbody>' + rows + '</tbody>'
-        + '</table>';
+        '<table class="hist-table"><thead><tr>'
+        + '<th>#</th><th>Inicio</th><th>Fim</th><th>Duracao</th>'
+        + '</tr></thead><tbody>' + rows + '</tbody></table>';
     }
 
-    // Cidades
+    // Cidades visitadas com detalhes
     const corpoCid = document.getElementById('corpo-cidades');
-    corpoCid.innerHTML = s.cidades_visitadas.length
-      ? s.cidades_visitadas.map(c => '<span class="tag">' + c + '</span>').join('')
-      : '<span style="font-size:13px;color:#9ca3af;padding:4px 0;">Nenhuma cidade ativa visitada.</span>';
+    if (s.cidades_visitadas.length === 0) {
+      corpoCid.innerHTML = '<div class="empty-msg">Nenhuma cidade ativa visitada neste periodo.</div>';
+    } else {
+      corpoCid.innerHTML = s.cidades_visitadas.map(c => {
+        const detailId = 'cid-' + c.nome.replace(/\s+/g, '-');
+        const visRows = c.visitas.map((v, i) => {
+          const ign = v.ignicao_off
+            ? '<span class="badge badge-verm"><i class="fas fa-power-off"></i> Desligou</span>'
+            : '<span class="badge badge-verde"><i class="fas fa-circle"></i> Ligado</span>';
+          return '<tr><td>' + (i+1) + '</td><td>' + v.entrada + '</td>'
+               + '<td>' + v.saida + '</td>'
+               + '<td><span class="badge badge-azul">' + durStr(v.duracao_min) + '</span></td>'
+               + '<td>' + ign + '</td></tr>';
+        }).join('');
+
+        const totalTempo = c.visitas.reduce((s, v) => s + v.duracao_min, 0);
+        return '<div class="cidade-bloco">'
+          + '<button class="cidade-header" onclick="toggleCidade(\'' + detailId + '\')">'
+          + '<span class="nome"><i class="fas fa-city" style="color:#3b82f6;margin-right:6px;"></i>' + c.nome + '</span>'
+          + '<span class="badge badge-azul" style="margin-right:6px;">' + c.total_visitas + ' visita' + (c.total_visitas > 1 ? 's' : '') + '</span>'
+          + '<span class="cnt">Tempo total: ' + durStr(totalTempo) + '</span>'
+          + '<i class="fas fa-chevron-down" style="margin-left:8px;color:#9ca3af;font-size:11px;"></i>'
+          + '</button>'
+          + '<div class="cidade-detail" id="' + detailId + '">'
+          + '<table class="hist-table" style="margin-top:8px;">'
+          + '<thead><tr><th>#</th><th>Entrada</th><th>Saida</th><th>Tempo</th><th>Ignicao</th></tr></thead>'
+          + '<tbody>' + visRows + '</tbody></table>'
+          + '</div></div>';
+      }).join('');
+    }
 
     // Locais fixos
     const secLoc = document.getElementById('sec-locais');
     if (s.locais_visitados && s.locais_visitados.length > 0) {
       secLoc.style.display = 'block';
       document.getElementById('corpo-locais').innerHTML =
-        s.locais_visitados.map(l => '<span class="tag verde">' + l.nome + '</span>').join('');
+        s.locais_visitados.map(l =>
+          '<span class="badge badge-verde">' + l.nome + '</span>'
+        ).join('');
     } else {
       secLoc.style.display = 'none';
     }
@@ -306,6 +327,11 @@ async function buscar() {
     btn.disabled = false;
     btn.innerHTML = '<i class="fas fa-search"></i> Buscar';
   }
+}
+
+function toggleCidade(id) {
+  const el = document.getElementById(id);
+  el.classList.toggle('open');
 }
 </script>
 {% endblock %}

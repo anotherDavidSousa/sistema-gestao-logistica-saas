@@ -302,25 +302,36 @@ def frota_ultima_posicao(request, placa):
 
 @staff_member_required
 def frota_historico_view(request):
-    """Renderiza a página de histórico de posições de um veículo."""
+    """Renderiza a página de histórico de posições de Cavalos agregados."""
     from .models import PosicaoVeiculo, Cavalo
     from django.utils import timezone as dj_tz
     from django.contrib.admin import site as admin_site
 
+    # Placas de Cavalos agregados com dados nos últimos 90 dias
     cutoff = dj_tz.now() - timedelta(days=90)
-    placas_com_dados = list(
+    placas_com_dados = set(
         PosicaoVeiculo.objects
         .filter(capturado_em__gte=cutoff)
         .values_list('placa', flat=True)
         .distinct()
+    )
+
+    # Filtra: apenas Cavalos classificados como agregado
+    cavalos_agregados = (
+        Cavalo.objects
+        .filter(classificacao='agregado')
+        .exclude(placa__isnull=True)
+        .exclude(placa='')
         .order_by('placa')
     )
-    cavalos = {c.placa.upper(): c for c in Cavalo.objects.all()}
+
     opcoes = []
-    for placa in placas_com_dados:
-        c = cavalos.get(placa.upper())
+    for c in cavalos_agregados:
+        placa = (c.placa or '').upper()
+        if placa not in placas_com_dados:
+            continue  # sem histórico ainda
         motorista = ''
-        if c and hasattr(c, 'motorista') and c.motorista:
+        if hasattr(c, 'motorista') and c.motorista:
             motorista = c.motorista.nome
         opcoes.append({
             'placa': placa,
@@ -365,35 +376,26 @@ def _point_in_polygon(lat, lng, polygon):
 @staff_member_required
 def frota_historico_api(request):
     """
-    API JSON para o historico de posicoes de um veiculo.
+    API JSON para o historico de posicoes de um Cavalo agregado.
     Params: placa, data_inicio (YYYY-MM-DD), data_fim (YYYY-MM-DD)
     """
-    from .models import PosicaoVeiculo, CidadeEntrega
+    from .models import PosicaoVeiculo, CidadeEntrega, Cavalo
     from django.utils import timezone as dj_tz
 
     placa = (request.GET.get('placa') or '').strip().upper()
     if not placa:
         return JsonResponse({'erro': 'Parametro placa obrigatorio.'}, status=400)
 
+    # Verifica se é um agregado
+    if not Cavalo.objects.filter(placa__iexact=placa, classificacao='agregado').exists():
+        return JsonResponse({'erro': 'Placa nao encontrada como Cavalo agregado.'}, status=403)
+
     data_inicio = _parse_date(request.GET.get('data_inicio', '')) or date.today()
     data_fim = _parse_date(request.GET.get('data_fim', '')) or data_inicio
 
-    try:
-        import pytz
-        tz = pytz.timezone('America/Sao_Paulo')
-    except Exception:
-        tz = None
-
-    def make_aware_local(d, t_min=True):
-        from datetime import time as dtime
-        t = dtime.min if t_min else dtime(23, 59, 59)
-        dt = datetime.combine(d, t)
-        if tz:
-            return dj_tz.make_aware(dt, tz)
-        return dj_tz.make_aware(dt)
-
-    dt_inicio = make_aware_local(data_inicio, t_min=True)
-    dt_fim = make_aware_local(data_fim, t_min=False)
+    # Usa o timezone do Django (America/Sao_Paulo via settings.py)
+    dt_inicio = dj_tz.make_aware(datetime.combine(data_inicio, datetime.min.time()))
+    dt_fim = dj_tz.make_aware(datetime.combine(data_fim, datetime.max.time().replace(microsecond=0)))
 
     posicoes_qs = list(
         PosicaoVeiculo.objects
@@ -406,8 +408,10 @@ def frota_historico_api(request):
         return JsonResponse({'posicoes': [], 'stats': None, 'aviso': 'Sem dados para este periodo.'})
 
     def fmt_ts(ts):
-        local = dj_tz.localtime(ts, tz) if (tz and dj_tz.is_aware(ts)) else ts
-        return local.strftime('%d/%m/%Y %H:%M')
+        """Converte timestamp para horário de Brasília (usa TIME_ZONE do settings)."""
+        if dj_tz.is_aware(ts):
+            return dj_tz.localtime(ts).strftime('%d/%m/%Y %H:%M')
+        return ts.strftime('%d/%m/%Y %H:%M')
 
     posicoes_out = [
         {'lat': p['lat'], 'lng': p['lng'], 'ignicao': p['ignicao'], 'ts': fmt_ts(p['capturado_em'])}
@@ -433,10 +437,7 @@ def frota_historico_api(request):
                 j += 1
             dur = (posicoes_qs[j - 1]['capturado_em'] - posicoes_qs[i]['capturado_em']).total_seconds() / 60
             if dur >= PARADA_MIN:
-                mid = (i + j - 1) // 2
                 paradas.append({
-                    'lat': posicoes_qs[mid]['lat'],
-                    'lng': posicoes_qs[mid]['lng'],
                     'inicio': fmt_ts(posicoes_qs[i]['capturado_em']),
                     'fim': fmt_ts(posicoes_qs[j - 1]['capturado_em']),
                     'duracao_min': round(dur),
@@ -445,9 +446,9 @@ def frota_historico_api(request):
         else:
             i += 1
 
-    # Cidades ativas visitadas
-    cidades_visitadas = []
-    for c in CidadeEntrega.objects.filter(ativa_semana=True).values('nome', 'poligono'):
+    # Cidades ativas visitadas — com detalhes por visita
+    cidades_visitadas_lista = []
+    for c in CidadeEntrega.objects.filter(ativa_semana=True).order_by('nome').values('nome', 'poligono'):
         poly = c.get('poligono')
         if not poly:
             continue
@@ -457,10 +458,44 @@ def frota_historico_api(request):
                 poly = _j.loads(poly)
             except Exception:
                 continue
+        if not poly:
+            continue
+
+        # Detecta sequencias consecutivas dentro da cidade
+        sequencias = []
+        seq_atual = []
         for p in posicoes_qs:
             if _point_in_polygon(p['lat'], p['lng'], poly):
-                cidades_visitadas.append(c['nome'])
-                break
+                seq_atual.append(p)
+            else:
+                if seq_atual:
+                    sequencias.append(seq_atual)
+                    seq_atual = []
+        if seq_atual:
+            sequencias.append(seq_atual)
+
+        if not sequencias:
+            continue
+
+        visitas = []
+        for seq in sequencias:
+            if len(seq) == 1:
+                dur = 5  # snapshot unico = intervalo minimo de ~5 min
+            else:
+                dur = round((seq[-1]['capturado_em'] - seq[0]['capturado_em']).total_seconds() / 60) + 5
+            ignicao_off = any(not p['ignicao'] for p in seq)
+            visitas.append({
+                'entrada': fmt_ts(seq[0]['capturado_em']),
+                'saida': fmt_ts(seq[-1]['capturado_em']),
+                'duracao_min': dur,
+                'ignicao_off': ignicao_off,
+            })
+
+        cidades_visitadas_lista.append({
+            'nome': c['nome'],
+            'total_visitas': len(visitas),
+            'visitas': visitas,
+        })
 
     # Locais fixos visitados
     locais_visitados = []
@@ -477,9 +512,9 @@ def frota_historico_api(request):
         'posicoes': posicoes_out,
         'stats': {
             'km_total': round(km_total, 1),
-            'total_pontos': len(posicoes_qs),
+            'total_rastreamentos': len(posicoes_qs),
             'paradas_longas': paradas,
-            'cidades_visitadas': sorted(cidades_visitadas),
+            'cidades_visitadas': cidades_visitadas_lista,
             'locais_visitados': locais_visitados,
             'periodo_inicio': fmt_ts(posicoes_qs[0]['capturado_em']),
             'periodo_fim': fmt_ts(posicoes_qs[-1]['capturado_em']),

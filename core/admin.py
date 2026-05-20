@@ -199,13 +199,57 @@ class CavaloAdmin(admin.ModelAdmin):
 
 # ── Carreta ───────────────────────────────────────────────────────────────────
 
+# ── Filtro de disponibilidade de carretas ────────────────────────────────────
+
+class _CarretaDisponivelFilter(admin.SimpleListFilter):
+    title        = 'Disponibilidade'
+    parameter_name = 'disponivel'
+
+    def lookups(self, request, model_admin):
+        return [
+            ('sim', 'Disponíveis (agregamento sem cavalo)'),
+            ('nao', 'Já agregadas (com cavalo vinculado)'),
+        ]
+
+    def queryset(self, request, queryset):
+        # Apenas carretas de agregamento
+        qs = queryset.filter(classificacao='agregado')
+        # IDs de carretas que têm um Cavalo vinculado
+        from .models import Cavalo as _Cavalo
+        placas_usadas = set(
+            _Cavalo.objects.filter(carreta__isnull=False)
+            .values_list('carreta_id', flat=True)
+        )
+        if self.value() == 'sim':
+            return qs.exclude(pk__in=placas_usadas)
+        if self.value() == 'nao':
+            return qs.filter(pk__in=placas_usadas)
+        return queryset
+
+
 @admin.register(Carreta)
 class CarretaAdmin(admin.ModelAdmin):
-    list_display   = ("placa", "marca", "classificacao", "situacao", "emissao_laudo")
-    list_filter    = ("classificacao", "situacao")
+    list_display   = ("placa", "marca", "classificacao", "situacao", "disponivel_display", "emissao_laudo")
+    list_filter    = ("classificacao", "situacao", _CarretaDisponivelFilter)
     search_fields  = ("placa",)
     exclude        = ("cones", "localizador", "step", "local", "modelo")
     inlines        = [CarretaDocumentoInline]
+    change_list_template = "admin/core/carreta/change_list.html"
+
+    def disponivel_display(self, obj):
+        if obj.classificacao != 'agregado':
+            return '—'
+        disp = obj.disponivel
+        if disp:
+            return format_html(
+                '<span style="color:#15803d;font-weight:700;">'
+                '<i class="fas fa-check-circle"></i> Disponível</span>'
+            )
+        return format_html(
+            '<span style="color:#6b7280;">'
+            '<i class="fas fa-link"></i> Agregada</span>'
+        )
+    disponivel_display.short_description = 'Status'
 
     def get_search_results(self, request, queryset, search_term):
         import re
@@ -213,6 +257,25 @@ class CarretaAdmin(admin.ModelAdmin):
         tokens     = [t for t in cleaned.upper().split() if t not in _UFS_BR]
         normalized = " ".join(tokens) if tokens else cleaned
         return super().get_search_results(request, queryset, normalized)
+
+    def changelist_view(self, request, extra_context=None):
+        from .models import Cavalo as _Cavalo
+        total_agr = Carreta.objects.filter(classificacao='agregado').count()
+        usadas_ids = set(
+            _Cavalo.objects.filter(carreta__isnull=False)
+            .values_list('carreta_id', flat=True)
+        )
+        ja_agregadas  = Carreta.objects.filter(classificacao='agregado', pk__in=usadas_ids).count()
+        disponiveis   = total_agr - ja_agregadas
+        extra_context = extra_context or {}
+        extra_context.update({
+            'carreta_cards': {
+                'total_agr':    total_agr,
+                'ja_agregadas': ja_agregadas,
+                'disponiveis':  disponiveis,
+            }
+        })
+        return super().changelist_view(request, extra_context=extra_context)
 
 
 # ── Motorista ─────────────────────────────────────────────────────────────────
@@ -245,12 +308,10 @@ class HistoricoGestorAdmin(admin.ModelAdmin):
     list_display = ("gestor", "cavalo", "data_inicio", "data_fim")
 
 
-# ── CidadeEntrega — widget de cor + campos individuais por ponta ──────────────
+# ── CidadeEntrega ────────────────────────────────────────────────────────────
 
 class _ColorPickerWidget(forms.TextInput):
-    """Input type=color nativo do browser — exibe seletor visual de cor."""
     input_type = 'color'
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.attrs.update({
@@ -259,55 +320,69 @@ class _ColorPickerWidget(forms.TextInput):
         })
 
 
+_DIAGRAM_HTML = (
+    '<div style="margin:12px 0 4px;max-width:340px;font-size:12px;">'
+    '<div style="background:#f0f9ff;border:2px solid #3b82f6;border-radius:8px;'
+    'padding:10px 14px;line-height:2;">'
+    '<strong style="color:#1e40af;">Como preencher o polígono:</strong><br>'
+    'Pense na cidade como um <strong>retângulo no mapa</strong>.<br>'
+    'Abra o <a href="https://www.google.com/maps" target="_blank" style="color:#2563eb;">Google Maps</a>, '
+    'clique nos 4 cantos da área e copie as coordenadas.<br><br>'
+    '<span style="font-family:monospace;background:#dbeafe;padding:2px 6px;border-radius:4px;">'
+    '↖ Sup. Esq.</span> &nbsp;&nbsp;&nbsp; '
+    '<span style="font-family:monospace;background:#dbeafe;padding:2px 6px;border-radius:4px;">'
+    'Sup. Dir. ↗</span><br>'
+    '<span style="font-family:monospace;background:#dbeafe;padding:2px 6px;border-radius:4px;">'
+    '↙ Inf. Esq.</span> &nbsp;&nbsp;&nbsp; '
+    '<span style="font-family:monospace;background:#dbeafe;padding:2px 6px;border-radius:4px;">'
+    'Inf. Dir. ↘</span><br><br>'
+    '<strong>Dica:</strong> No Google Maps, clique com o botão direito num ponto '
+    'e selecione a coordenada que aparece — ela copia automaticamente.<br>'
+    '<strong>Lat</strong> = primeiro número (ex.: -19.47) &nbsp;|&nbsp; '
+    '<strong>Long</strong> = segundo número (ex.: -42.54)'
+    '</div></div>'
+)
+
+
+def _coord_field(label, placeholder_lat, placeholder_lng, axis):
+    ph = placeholder_lat if axis == 'lat' else placeholder_lng
+    return forms.FloatField(
+        label=label,
+        required=False,
+        widget=forms.NumberInput(attrs={
+            'step': 'any',
+            'placeholder': ph,
+            'style': 'width:160px;',
+        }),
+    )
+
+
 class _CidadeEntregaForm(forms.ModelForm):
     """
-    Formulario plano para CidadeEntrega.
-    Substitui o campo JSON poligono por 4 pares de lat/lng individuais,
-    mais intuitivos para o usuario.
+    Form simplificado: 4 pares lat/lng nomeados pelos cantos do retângulo.
+    Ordem interna do polígono: [sup_esq, sup_dir, inf_dir, inf_esq].
     """
 
-    lat1 = forms.FloatField(
-        label='Ponta 1 — Latitude', required=False,
-        help_text='Exemplo: -19.4731',
-        widget=forms.NumberInput(attrs={'step': 'any', 'placeholder': '-19.4731'}),
-    )
-    lng1 = forms.FloatField(
-        label='Ponta 1 — Longitude', required=False,
-        widget=forms.NumberInput(attrs={'step': 'any', 'placeholder': '-42.5361'}),
-    )
-    lat2 = forms.FloatField(
-        label='Ponta 2 — Latitude', required=False,
-        widget=forms.NumberInput(attrs={'step': 'any', 'placeholder': '-19.4731'}),
-    )
-    lng2 = forms.FloatField(
-        label='Ponta 2 — Longitude', required=False,
-        widget=forms.NumberInput(attrs={'step': 'any', 'placeholder': '-42.5361'}),
-    )
-    lat3 = forms.FloatField(
-        label='Ponta 3 — Latitude', required=False,
-        widget=forms.NumberInput(attrs={'step': 'any', 'placeholder': '-19.4731'}),
-    )
-    lng3 = forms.FloatField(
-        label='Ponta 3 — Longitude', required=False,
-        widget=forms.NumberInput(attrs={'step': 'any', 'placeholder': '-42.5361'}),
-    )
-    lat4 = forms.FloatField(
-        label='Ponta 4 — Latitude', required=False,
-        widget=forms.NumberInput(attrs={'step': 'any', 'placeholder': '-19.4731'}),
-    )
-    lng4 = forms.FloatField(
-        label='Ponta 4 — Longitude', required=False,
-        widget=forms.NumberInput(attrs={'step': 'any', 'placeholder': '-42.5361'}),
-    )
+    # Ponta superior esquerda (noroeste)
+    lat1 = _coord_field('Latitude',  '-19.460', '-42.550', 'lat')
+    lng1 = _coord_field('Longitude', '-19.460', '-42.580', 'lng')
+    # Ponta superior direita (nordeste)
+    lat2 = _coord_field('Latitude',  '-19.460', '-42.510', 'lat')
+    lng2 = _coord_field('Longitude', '-19.460', '-42.510', 'lng')
+    # Ponta inferior direita (sudeste)
+    lat3 = _coord_field('Latitude',  '-19.490', '-42.510', 'lat')
+    lng3 = _coord_field('Longitude', '-19.490', '-42.510', 'lng')
+    # Ponta inferior esquerda (sudoeste)
+    lat4 = _coord_field('Latitude',  '-19.490', '-42.580', 'lat')
+    lng4 = _coord_field('Longitude', '-19.490', '-42.580', 'lng')
 
     class Meta:
-        model  = CidadeEntrega
-        fields = ('nome', 'cor', 'ativa_semana')
+        model   = CidadeEntrega
+        fields  = ('nome', 'cor', 'ativa_semana')
         widgets = {'cor': _ColorPickerWidget()}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Pre-popula os campos individuais com os dados do poligono existente
         if self.instance and self.instance.pk and self.instance.poligono:
             for i, ponto in enumerate(self.instance.poligono[:4], start=1):
                 if len(ponto) >= 2:
@@ -337,14 +412,35 @@ class CidadeEntregaAdmin(admin.ModelAdmin):
     list_editable = ("ativa_semana",)
     ordering      = ("nome",)
 
-    # Tudo em uma pagina so — sem fieldsets/abas
-    fields = (
-        "nome", "cor", "ativa_semana",
-        "lat1", "lng1",
-        "lat2", "lng2",
-        "lat3", "lng3",
-        "lat4", "lng4",
+    fieldsets = (
+        (None, {
+            'fields': ('nome', 'cor', 'ativa_semana'),
+        }),
+        ('Área no Mapa — 4 Cantos do Retângulo', {
+            'description': _DIAGRAM_HTML,
+            'fields': (
+                ('lat1', 'lng1'),
+                ('lat2', 'lng2'),
+                ('lat3', 'lng3'),
+                ('lat4', 'lng4'),
+            ),
+            'classes': ('wide',),
+        }),
     )
+
+    def get_fieldsets(self, request, obj=None):
+        fs = super().get_fieldsets(request, obj)
+        # Renomeia as subseções com os nomes dos cantos
+        labels = [
+            '↖ Superior Esquerda (Noroeste)',
+            '↗ Superior Direita (Nordeste)',
+            '↘ Inferior Direita (Sudeste)',
+            '↙ Inferior Esquerda (Sudoeste)',
+        ]
+        for i, lbl in enumerate(labels, start=1):
+            self.form.declared_fields[f'lat{i}'].label = lbl + ' — Latitude'
+            self.form.declared_fields[f'lng{i}'].label = lbl + ' — Longitude'
+        return fs
 
     def cor_preview(self, obj):
         return format_html(

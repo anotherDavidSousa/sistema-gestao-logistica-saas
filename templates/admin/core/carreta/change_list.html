@@ -1,0 +1,53 @@
+{% extends "admin/change_list.html" %}
+{% load i18n static %}
+
+{% block content %}
+{% if carreta_cards %}
+<style>
+.carreta-cards {
+  display: flex; flex-wrap: wrap; gap: 12px;
+  margin-bottom: 20px; max-width: 100%;
+}
+.carreta-card {
+  flex: 1; min-width: 140px;
+  background: var(--f16-card, #fff);
+  border: 1px solid var(--f16-border, #e5e7eb);
+  border-radius: 10px; padding: 14px 18px;
+}
+.carreta-card .lbl {
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .04em; color: var(--f16-text-muted, #6b7280); margin-bottom: 4px;
+}
+.carreta-card .val {
+  font-size: 32px; font-weight: 800;
+  color: var(--f16-text, #111827); line-height: 1;
+}
+.carreta-card .sub {
+  font-size: 11px; color: var(--f16-text-muted, #6b7280); margin-top: 3px;
+}
+.carreta-card.verde .val  { color: #15803d; }
+.carreta-card.azul  .val  { color: #1e40af; }
+.carreta-card.cinza .val  { color: #6b7280; }
+</style>
+
+<div class="carreta-cards">
+  <div class="carreta-card azul">
+    <div class="lbl"><i class="fas fa-trailer"></i> Total agregamento</div>
+    <div class="val">{{ carreta_cards.total_agr }}</div>
+    <div class="sub">carretas com classificação agregado</div>
+  </div>
+  <div class="carreta-card cinza">
+    <div class="lbl"><i class="fas fa-link"></i> Já agregadas</div>
+    <div class="val">{{ carreta_cards.ja_agregadas }}</div>
+    <div class="sub">vinculadas a um cavalo ativo</div>
+  </div>
+  <div class="carreta-card verde">
+    <div class="lbl"><i class="fas fa-check-circle"></i> Disponíveis</div>
+    <div class="val">{{ carreta_cards.disponiveis }}</div>
+    <div class="sub">aguardando cavalo</div>
+  </div>
+</div>
+{% endif %}
+
+{{ block.super }}
+{% endblock %}
