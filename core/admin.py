@@ -443,51 +443,53 @@ class _ColorPickerWidget(forms.TextInput):
 
 
 _DIAGRAM_HTML = (
-    "<div style=\"margin:12px 0 4px;max-width:340px;font-size:12px;\">"
+    "<div style=\"margin:12px 0 4px;max-width:380px;font-size:12px;\">"
     "<div style=\"background:#f0f9ff;border:2px solid #3b82f6;border-radius:8px;"
-    "padding:10px 14px;line-height:2;\">"
-    "<strong style=\"color:#1e40af;\">Como preencher o polígono:</strong><br>"
-    "Pense na cidade como um <strong>retângulo no mapa</strong>.<br>"
-    "Abra o <a href=\"https://www.google.com/maps\" target=\"_blank\" style=\"color:#2563eb;\">Google Maps</a>, "
-    "clique nos 4 cantos da área e copie as coordenadas.<br><br>"
-    "<span style=\"font-family:monospace;background:#dbeafe;padding:2px 6px;border-radius:4px;\">"
-    "↖ Sup. Esq.</span> &nbsp;&nbsp;&nbsp; "
-    "<span style=\"font-family:monospace;background:#dbeafe;padding:2px 6px;border-radius:4px;\">"
-    "Sup. Dir. ↗</span><br>"
-    "<span style=\"font-family:monospace;background:#dbeafe;padding:2px 6px;border-radius:4px;\">"
-    "↙ Inf. Esq.</span> &nbsp;&nbsp;&nbsp; "
-    "<span style=\"font-family:monospace;background:#dbeafe;padding:2px 6px;border-radius:4px;\">"
-    "Inf. Dir. ↘</span><br><br>"
-    "<strong>Dica:</strong> No Google Maps, clique com o botão direito num ponto "
-    "e selecione a coordenada que aparece — ela copia automaticamente.<br>"
+    "padding:10px 14px;line-height:1.8;\">"
+    "<strong style=\"color:#1e40af;\">Apenas 2 pontos — o retângulo é fechado automaticamente!</strong><br>"
+    "Informe o canto <strong>Superior Esquerdo</strong> (↖) e o <strong>Inferior Direito</strong> (↘).<br>"
+    "Os outros dois cantos são calculados pelo sistema.<br><br>"
+    "<div style=\"font-family:monospace;font-size:11px;background:#e0f2fe;"
+    "border-radius:6px;padding:8px 12px;line-height:2;\">"
+    "<span style=\"background:#1e40af;color:#fff;padding:1px 6px;border-radius:4px;\">↖ Sup. Esq.</span>"
+    " &nbsp;────────&nbsp; "
+    "<span style=\"background:#6b7280;color:#fff;padding:1px 6px;border-radius:4px;\">auto ↗</span><br>"
+    "<span style=\"background:#6b7280;color:#fff;padding:1px 6px;border-radius:4px;\">auto ↙</span>"
+    " &nbsp;────────&nbsp; "
+    "<span style=\"background:#1e40af;color:#fff;padding:1px 6px;border-radius:4px;\">↘ Inf. Dir.</span>"
+    "</div><br>"
+    "<strong>Como obter as coordenadas:</strong> Abra o "
+    "<a href=\"https://www.google.com/maps\" target=\"_blank\" style=\"color:#2563eb;\">Google Maps</a>, "
+    "clique com o botão direito no ponto e selecione a coordenada.<br>"
     "<strong>Lat</strong> = primeiro número (ex.: -19.47) &nbsp;|&nbsp; "
-    "<strong>Long</strong> = segundo número (ex.: -42.54)"
+    "<strong>Lng</strong> = segundo número (ex.: -42.54)"
     "</div></div>"
 )
 
 
-def _coord_field(label, placeholder_lat, placeholder_lng, axis):
-    ph = placeholder_lat if axis == "lat" else placeholder_lng
+def _coord_field(label, ph, axis):
     return forms.FloatField(
         label=label,
         required=False,
         widget=forms.NumberInput(attrs={
             "step": "any",
             "placeholder": ph,
-            "style": "width:160px;",
+            "style": "width:170px;",
         }),
     )
 
 
 class _CidadeEntregaForm(forms.ModelForm):
-    lat1 = _coord_field("Latitude",  "-19.460", "-42.550", "lat")
-    lng1 = _coord_field("Longitude", "-19.460", "-42.580", "lng")
-    lat2 = _coord_field("Latitude",  "-19.460", "-42.510", "lat")
-    lng2 = _coord_field("Longitude", "-19.460", "-42.510", "lng")
-    lat3 = _coord_field("Latitude",  "-19.490", "-42.510", "lat")
-    lng3 = _coord_field("Longitude", "-19.490", "-42.510", "lng")
-    lat4 = _coord_field("Latitude",  "-19.490", "-42.580", "lat")
-    lng4 = _coord_field("Longitude", "-19.490", "-42.580", "lng")
+    """
+    Formulário simplificado: apenas 2 pontos diagonais.
+    O sistema fecha o retângulo automaticamente:
+      NW (lat_nw, lng_nw)  ──  NE (lat_nw, lng_se)
+      SW (lat_se, lng_nw)  ──  SE (lat_se, lng_se)
+    """
+    lat_nw = _coord_field("↖ Sup. Esquerda — Latitude",  "-19.460", "lat")
+    lng_nw = _coord_field("↖ Sup. Esquerda — Longitude", "-42.580", "lng")
+    lat_se = _coord_field("↘ Inf. Direita — Latitude",   "-19.490", "lat")
+    lng_se = _coord_field("↘ Inf. Direita — Longitude",  "-42.510", "lng")
 
     class Meta:
         model   = CidadeEntrega
@@ -497,20 +499,29 @@ class _CidadeEntregaForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if self.instance and self.instance.pk and self.instance.poligono:
-            for i, ponto in enumerate(self.instance.poligono[:4], start=1):
-                if len(ponto) >= 2:
-                    self.fields[f"lat{i}"].initial = ponto[0]
-                    self.fields[f"lng{i}"].initial = ponto[1]
+            poly = self.instance.poligono
+            # ponto 0 = NW, ponto 2 = SE (ordem salva pelo save())
+            if len(poly) >= 1 and len(poly[0]) >= 2:
+                self.fields["lat_nw"].initial = poly[0][0]
+                self.fields["lng_nw"].initial = poly[0][1]
+            if len(poly) >= 3 and len(poly[2]) >= 2:
+                self.fields["lat_se"].initial = poly[2][0]
+                self.fields["lng_se"].initial = poly[2][1]
 
     def save(self, commit=True):
         instance = super().save(commit=False)
-        pontos = []
-        for i in range(1, 5):
-            lat = self.cleaned_data.get(f"lat{i}")
-            lng = self.cleaned_data.get(f"lng{i}")
-            if lat is not None and lng is not None:
-                pontos.append([lat, lng])
-        instance.poligono = pontos
+        lat_nw = self.cleaned_data.get("lat_nw")
+        lng_nw = self.cleaned_data.get("lng_nw")
+        lat_se = self.cleaned_data.get("lat_se")
+        lng_se = self.cleaned_data.get("lng_se")
+        if all(v is not None for v in [lat_nw, lng_nw, lat_se, lng_se]):
+            # Fecha o retangulo: NW -> NE -> SE -> SW
+            instance.poligono = [
+                [lat_nw, lng_nw],   # ↖ Superior Esquerda (Noroeste)
+                [lat_nw, lng_se],   # ↗ Superior Direita  (Nordeste)  — auto
+                [lat_se, lng_se],   # ↘ Inferior Direita  (Sudeste)
+                [lat_se, lng_nw],   # ↙ Inferior Esquerda (Sudoeste)  — auto
+            ]
         if commit:
             instance.save()
         return instance
@@ -529,30 +540,15 @@ class CidadeEntregaAdmin(admin.ModelAdmin):
         (None, {
             "fields": ("nome", "cor", "ativa_semana"),
         }),
-        ("Área no Mapa — 4 Cantos do Retângulo", {
+        ("Área no Mapa — 2 Pontos Diagonais (retangulo automatico)", {
             "description": _DIAGRAM_HTML,
             "fields": (
-                ("lat1", "lng1"),
-                ("lat2", "lng2"),
-                ("lat3", "lng3"),
-                ("lat4", "lng4"),
+                ("lat_nw", "lng_nw"),
+                ("lat_se", "lng_se"),
             ),
             "classes": ("wide",),
         }),
     )
-
-    def get_fieldsets(self, request, obj=None):
-        fs = super().get_fieldsets(request, obj)
-        labels = [
-            "↖ Superior Esquerda (Noroeste)",
-            "↗ Superior Direita (Nordeste)",
-            "↘ Inferior Direita (Sudeste)",
-            "↙ Inferior Esquerda (Sudoeste)",
-        ]
-        for i, lbl in enumerate(labels, start=1):
-            self.form.declared_fields[f"lat{i}"].label = lbl + " — Latitude"
-            self.form.declared_fields[f"lng{i}"].label = lbl + " — Longitude"
-        return fs
 
     def cor_preview(self, obj):
         return format_html(
