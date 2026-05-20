@@ -464,7 +464,7 @@ class PosicaoVeiculo(models.Model):
     Gravado a cada 5 minutos pelo management command 'salvar_posicoes'.
     """
     placa = models.CharField(
-        max_length=10,
+        max_length=30,
         db_index=True,
         verbose_name='Placa',
     )
