@@ -4,7 +4,6 @@
 {% block extrahead %}
 {{ block.super }}
 <style>
-/* ── Cards ─────────────────────────────────────────────── */
 .carreta-cards {
   display: flex; flex-wrap: wrap; gap: 12px;
   margin-bottom: 20px; max-width: 100%;
@@ -30,7 +29,6 @@
 .carreta-card.azul  .val  { color: #1e40af; }
 .carreta-card.cinza .val  { color: #6b7280; }
 
-/* ── Largura das colunas da tabela ─────────────────────── */
 #result_list th.column-placa,
 #result_list td.field-placa          { width: 90px;  white-space: nowrap; }
 #result_list th.column-marca,
@@ -41,4 +39,34 @@
 #result_list td.field-ano            { width: 55px;  text-align: center; }
 #result_list th.column-classificacao,
 #result_list td.field-classificacao  { width: 110px; }
-#result_list 
+#result_list th.column-situacao,
+#result_list td.field-situacao       { width: 90px; }
+#result_list th.column-disponivel_display,
+#result_list td.field-disponivel_display { width: 110px; white-space: nowrap; }
+#result_list th.column-observacoes_curta,
+#result_list td.field-observacoes_curta  { min-width: 160px; }
+</style>
+{% endblock %}
+
+{% block content %}
+{% if carreta_cards %}
+<div class="carreta-cards">
+  <div class="carreta-card azul">
+    <div class="lbl"><i class="fas fa-trailer"></i> Total agregamento</div>
+    <div class="val">{{ carreta_cards.total_agr }}</div>
+    <div class="sub">carretas com classificacao agregado</div>
+  </div>
+  <div class="carreta-card cinza">
+    <div class="lbl"><i class="fas fa-link"></i> Ja agregadas</div>
+    <div class="val">{{ carreta_cards.ja_agregadas }}</div>
+    <div class="sub">vinculadas a um cavalo ativo</div>
+  </div>
+  <div class="carreta-card verde">
+    <div class="lbl"><i class="fas fa-check-circle"></i> Disponiveis</div>
+    <div class="val">{{ carreta_cards.disponiveis }}</div>
+    <div class="sub">aguardando cavalo</div>
+  </div>
+</div>
+{% endif %}
+{{ block.super }}
+{% endblock %}
