@@ -1,0 +1,390 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block title %}Historico de Frota — {{ site_title }}{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+<style>
+/* ── Layout ─────────────────────────────────────────────────────────────────── */
+.hist-page { display:flex; flex-direction:column; gap:16px; padding:16px 0 0; }
+
+/* Controles */
+.hist-controls {
+  display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end;
+  background:var(--f16-card,#fff);
+  border:1px solid var(--f16-border,#e5e7eb);
+  border-radius:10px; padding:14px 16px;
+}
+.hist-controls label { font-size:11px; font-weight:700; color:var(--f16-text-muted,#6b7280);
+  text-transform:uppercase; letter-spacing:.04em; display:block; margin-bottom:4px; }
+.hist-controls select,
+.hist-controls input[type=date] {
+  height:36px; border:1px solid var(--f16-border,#e5e7eb);
+  border-radius:7px; padding:0 10px; font-size:13px;
+  background:var(--f16-card,#fff); color:var(--f16-text,#111827);
+}
+.hist-controls select { min-width:240px; }
+.hist-controls input[type=date] { width:148px; }
+.hist-btn {
+  height:36px; padding:0 20px; border:none; border-radius:7px;
+  background:#3b82f6; color:#fff; font-size:13px; font-weight:700;
+  cursor:pointer; display:flex; align-items:center; gap:6px;
+  transition:background .15s;
+}
+.hist-btn:hover { background:#2563eb; }
+.hist-btn:disabled { background:#93c5fd; cursor:not-allowed; }
+
+/* Cards */
+.hist-cards { display:flex; flex-wrap:wrap; gap:12px; }
+.hist-card {
+  flex:1; min-width:140px; max-width:200px;
+  background:var(--f16-card,#fff); border:1px solid var(--f16-border,#e5e7eb);
+  border-radius:10px; padding:14px 16px;
+}
+.hist-card .card-label { font-size:11px; font-weight:700; color:var(--f16-text-muted,#6b7280);
+  text-transform:uppercase; letter-spacing:.04em; margin-bottom:4px; }
+.hist-card .card-value { font-size:26px; font-weight:800; color:var(--f16-text,#111827); line-height:1; }
+.hist-card .card-sub { font-size:11px; color:var(--f16-text-muted,#6b7280); margin-top:3px; }
+
+/* Conteudo principal */
+.hist-main { display:flex; gap:14px; min-height:480px; }
+#hist-map { flex:1; min-width:0; border-radius:10px; overflow:hidden;
+  border:1px solid var(--f16-border,#e5e7eb); min-height:480px; }
+
+/* Painel lateral */
+.hist-panel {
+  width:280px; flex-shrink:0;
+  background:var(--f16-card,#fff); border:1px solid var(--f16-border,#e5e7eb);
+  border-radius:10px; overflow-y:auto; max-height:calc(100vh - 260px);
+  display:flex; flex-direction:column;
+}
+.hist-panel-section { padding:12px 14px; border-bottom:1px solid var(--f16-border,#e5e7eb); }
+.hist-panel-section:last-child { border-bottom:none; }
+.hist-panel-section h4 {
+  margin:0 0 8px; font-size:11px; font-weight:700;
+  text-transform:uppercase; letter-spacing:.04em; color:var(--f16-text-muted,#6b7280);
+}
+.hist-parada-item {
+  padding:8px 10px; border-radius:7px; margin-bottom:6px;
+  background:var(--f16-surface,#f9fafb); cursor:pointer;
+  font-size:12px; border:1px solid var(--f16-border,#e5e7eb);
+  transition:border-color .15s;
+}
+.hist-parada-item:hover { border-color:#f59e0b; }
+.hist-parada-item .dur { font-weight:700; color:#d97706; font-size:13px; }
+.hist-parada-item .hor { color:var(--f16-text-muted,#6b7280); font-size:11px; }
+.hist-tag {
+  display:inline-block; padding:2px 8px; border-radius:20px; font-size:11px;
+  font-weight:600; margin:2px 2px 2px 0;
+  background:#dbeafe; color:#1e40af;
+}
+.hist-tag.verde { background:#dcfce7; color:#15803d; }
+
+/* Estado vazio / loading */
+.hist-empty {
+  flex:1; display:flex; align-items:center; justify-content:center;
+  font-size:13px; color:var(--f16-text-muted,#9ca3af); text-align:center;
+  padding:24px;
+}
+.hist-spinner {
+  width:24px; height:24px; border:3px solid #e5e7eb; border-top-color:#3b82f6;
+  border-radius:50%; animation:spin .7s linear infinite; margin:0 auto 8px;
+}
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* Popups Leaflet */
+.parada-popup { font-size:12px; }
+.parada-popup strong { font-size:13px; display:block; margin-bottom:4px; }
+</style>
+{% endblock %}
+
+{% block content_title %}
+<h1><i class="fas fa-route" style="color:#3b82f6;margin-right:8px;"></i>Historico de Frota</h1>
+{% endblock %}
+
+{% block content %}
+<div class="hist-page">
+
+  <!-- Controles -->
+  <div class="hist-controls">
+    <div>
+      <label for="sel-placa">Veiculo</label>
+      <select id="sel-placa">
+        <option value="">— Selecione a placa —</option>
+      </select>
+    </div>
+    <div>
+      <label for="inp-inicio">De</label>
+      <input type="date" id="inp-inicio">
+    </div>
+    <div>
+      <label for="inp-fim">Ate</label>
+      <input type="date" id="inp-fim">
+    </div>
+    <button class="hist-btn" id="btn-buscar" onclick="buscarHistorico()" disabled>
+      <i class="fas fa-search"></i> Buscar
+    </button>
+  </div>
+
+  <!-- Cards de stats -->
+  <div class="hist-cards" id="hist-cards" style="display:none;">
+    <div class="hist-card">
+      <div class="card-label"><i class="fas fa-road"></i> KM rodados</div>
+      <div class="card-value" id="stat-km">—</div>
+      <div class="card-sub" id="stat-periodo"></div>
+    </div>
+    <div class="hist-card">
+      <div class="card-label"><i class="fas fa-map-marker-alt"></i> Pontos</div>
+      <div class="card-value" id="stat-pontos">—</div>
+      <div class="card-sub">registros no periodo</div>
+    </div>
+    <div class="hist-card">
+      <div class="card-label"><i class="fas fa-parking"></i> Paradas</div>
+      <div class="card-value" id="stat-paradas">—</div>
+      <div class="card-sub">ignicao off ≥ 15 min</div>
+    </div>
+    <div class="hist-card">
+      <div class="card-label"><i class="fas fa-city"></i> Cidades</div>
+      <div class="card-value" id="stat-cidades">—</div>
+      <div class="card-sub">cidades ativas visitadas</div>
+    </div>
+  </div>
+
+  <!-- Mapa + painel -->
+  <div class="hist-main">
+    <div id="hist-map">
+      <div class="hist-empty" id="hist-map-placeholder">
+        <div>
+          <i class="fas fa-route" style="font-size:40px;color:#d1d5db;display:block;margin-bottom:12px;"></i>
+          Selecione um veiculo e periodo para visualizar a rota
+        </div>
+      </div>
+    </div>
+    <div class="hist-panel" id="hist-panel" style="display:none;">
+      <div class="hist-panel-section" id="panel-paradas">
+        <h4><i class="fas fa-parking"></i> Paradas longas</h4>
+        <div id="lista-paradas"><span class="hist-empty">Nenhuma parada longa.</span></div>
+      </div>
+      <div class="hist-panel-section" id="panel-cidades">
+        <h4><i class="fas fa-city"></i> Cidades visitadas</h4>
+        <div id="lista-cidades"></div>
+      </div>
+      <div class="hist-panel-section" id="panel-locais" style="display:none;">
+        <h4><i class="fas fa-industry"></i> Locais fixos</h4>
+        <div id="lista-locais"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extrajs %}
+{{ block.super }}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV/XN/WLs=" crossorigin=""></script>
+<script>
+// ── Dados do servidor ───────────────────────────────────────────────────────
+const OPCOES_VEICULOS = {{ opcoes_veiculos|safe }};
+
+// ── Estado ───────────────────────────────────────────────────────────────────
+let leafletMap = null;
+let routeLayer = null;
+let markersLayer = null;
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  // Preenche select de placas
+  const sel = document.getElementById('sel-placa');
+  OPCOES_VEICULOS.forEach(op => {
+    const opt = document.createElement('option');
+    opt.value = op.placa;
+    opt.textContent = op.label;
+    sel.appendChild(opt);
+  });
+  sel.addEventListener('change', () => {
+    document.getElementById('btn-buscar').disabled = !sel.value;
+  });
+
+  // Datas padrão: hoje
+  const hoje = new Date().toISOString().slice(0,10);
+  document.getElementById('inp-inicio').value = hoje;
+  document.getElementById('inp-fim').value = hoje;
+});
+
+// ── Inicializa mapa Leaflet ───────────────────────────────────────────────────
+function initMap() {
+  if (leafletMap) return;
+  document.getElementById('hist-map-placeholder').remove();
+  leafletMap = L.map('hist-map').setView([-19.47, -42.54], 10);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    maxZoom: 19,
+  }).addTo(leafletMap);
+}
+
+// ── Busca e desenha rota ──────────────────────────────────────────────────────
+async function buscarHistorico() {
+  const placa = document.getElementById('sel-placa').value;
+  const inicio = document.getElementById('inp-inicio').value;
+  const fim = document.getElementById('inp-fim').value;
+  if (!placa) return;
+
+  const btn = document.getElementById('btn-buscar');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="hist-spinner" style="width:16px;height:16px;border-width:2px;margin:0 6px 0 0;"></div>Buscando...';
+
+  try {
+    const url = `/admin/frota/historico/api/?placa=${encodeURIComponent(placa)}&data_inicio=${inicio}&data_fim=${fim}`;
+    const resp = await fetch(url, {credentials:'same-origin'});
+    const data = await resp.json();
+
+    if (data.aviso || !data.posicoes || data.posicoes.length === 0) {
+      alert(data.aviso || data.erro || 'Sem dados para este periodo.');
+      return;
+    }
+
+    renderizarRota(placa, data);
+  } catch(e) {
+    alert('Erro ao buscar historico: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-search"></i> Buscar';
+  }
+}
+
+// ── Renderiza a rota no mapa e os cards ──────────────────────────────────────
+function renderizarRota(placa, data) {
+  initMap();
+
+  // Limpa camadas anteriores
+  if (routeLayer) { leafletMap.removeLayer(routeLayer); routeLayer = null; }
+  if (markersLayer) { leafletMap.removeLayer(markersLayer); markersLayer = null; }
+
+  const posicoes = data.posicoes;
+  const stats = data.stats;
+
+  // Polyline da rota (azul = ligado, cinza = desligado)
+  // Divide em segmentos por status da ignicao para colorir diferente
+  markersLayer = L.layerGroup().addTo(leafletMap);
+
+  const segmentos = [];
+  let seg = [posicoes[0]];
+  for (let i = 1; i < posicoes.length; i++) {
+    if (posicoes[i].ignicao === posicoes[i-1].ignicao) {
+      seg.push(posicoes[i]);
+    } else {
+      segmentos.push({pts: seg, on: posicoes[i-1].ignicao});
+      seg = [posicoes[i-1], posicoes[i]];
+    }
+  }
+  if (seg.length) segmentos.push({pts: seg, on: posicoes[posicoes.length-1].ignicao});
+
+  const allLatLngs = [];
+  segmentos.forEach(s => {
+    const lls = s.pts.map(p => [p.lat, p.lng]);
+    allLatLngs.push(...lls);
+    L.polyline(lls, {
+      color: s.on ? '#3b82f6' : '#9ca3af',
+      weight: s.on ? 4 : 2,
+      opacity: s.on ? 0.85 : 0.5,
+    }).addTo(markersLayer);
+  });
+
+  // Marcador de inicio (verde) e fim (vermelho)
+  const first = posicoes[0];
+  const last = posicoes[posicoes.length - 1];
+
+  L.circleMarker([first.lat, first.lng], {radius:8, fillColor:'#16a34a', color:'#fff', weight:2, fillOpacity:1})
+    .bindPopup(`<b>Inicio</b><br>${first.ts}`)
+    .addTo(markersLayer);
+
+  L.circleMarker([last.lat, last.lng], {radius:8, fillColor:'#dc2626', color:'#fff', weight:2, fillOpacity:1})
+    .bindPopup(`<b>Fim</b><br>${last.ts}`)
+    .addTo(markersLayer);
+
+  // Marcadores de paradas longas
+  stats.paradas_longas.forEach(p => {
+    const hrs = Math.floor(p.duracao_min / 60);
+    const mins = p.duracao_min % 60;
+    const durStr = hrs > 0 ? hrs + 'h ' + mins + 'min' : mins + 'min';
+    L.circleMarker([p.lat, p.lng], {
+      radius:10, fillColor:'#f59e0b', color:'#fff', weight:2, fillOpacity:.9,
+    }).bindPopup(`
+      <div class="parada-popup">
+        <strong><i class="fas fa-parking"></i> Parada: ${durStr}</strong>
+        De: ${p.inicio}<br>
+        Ate: ${p.fim}
+      </div>
+    `).addTo(markersLayer);
+  });
+
+  // Ajusta viewport
+  if (allLatLngs.length) {
+    leafletMap.fitBounds(L.latLngBounds(allLatLngs), {padding:[30,30]});
+  }
+
+  // Cards
+  document.getElementById('hist-cards').style.display = 'flex';
+  document.getElementById('stat-km').textContent = stats.km_total.toLocaleString('pt-BR') + ' km';
+  document.getElementById('stat-periodo').textContent = stats.periodo_inicio + ' — ' + stats.periodo_fim;
+  document.getElementById('stat-pontos').textContent = stats.total_pontos;
+  document.getElementById('stat-paradas').textContent = stats.paradas_longas.length;
+  document.getElementById('stat-cidades').textContent = stats.cidades_visitadas.length;
+
+  // Painel lateral
+  document.getElementById('hist-panel').style.display = 'flex';
+
+  // Lista paradas
+  const listaParadas = document.getElementById('lista-paradas');
+  if (stats.paradas_longas.length === 0) {
+    listaParadas.innerHTML = '<div style="font-size:12px;color:#9ca3af;">Nenhuma parada longa detectada.</div>';
+  } else {
+    listaParadas.innerHTML = '';
+    stats.paradas_longas.forEach((p, idx) => {
+      const hrs = Math.floor(p.duracao_min / 60);
+      const mins = p.duracao_min % 60;
+      const durStr = hrs > 0 ? hrs + 'h ' + mins + 'min' : mins + 'min';
+      const div = document.createElement('div');
+      div.className = 'hist-parada-item';
+      div.innerHTML = `
+        <div class="dur"><i class="fas fa-parking"></i> ${durStr}</div>
+        <div class="hor">${p.inicio} ate ${p.fim}</div>
+      `;
+      div.addEventListener('click', () => {
+        leafletMap.setView([p.lat, p.lng], 15);
+        markersLayer.eachLayer(l => {
+          if (l.getLatLng && l.getLatLng().lat === p.lat && l.getLatLng().lng === p.lng) {
+            l.openPopup();
+          }
+        });
+      });
+      listaParadas.appendChild(div);
+    });
+  }
+
+  // Cidades
+  const listaCidades = document.getElementById('lista-cidades');
+  if (stats.cidades_visitadas.length === 0) {
+    listaCidades.innerHTML = '<div style="font-size:12px;color:#9ca3af;">Nenhuma cidade ativa visitada.</div>';
+  } else {
+    listaCidades.innerHTML = stats.cidades_visitadas.map(c =>
+      `<span class="hist-tag">${c}</span>`
+    ).join('');
+  }
+
+  // Locais fixos
+  if (stats.locais_visitados && stats.locais_visitados.length > 0) {
+    document.getElementById('panel-locais').style.display = 'block';
+    document.getElementById('lista-locais').innerHTML = stats.locais_visitados.map(l =>
+      `<span class="hist-tag verde">${l.nome}</span>`
+    ).join('');
+  } else {
+    document.getElementById('panel-locais').style.display = 'none';
+  }
+}
+</script>
+{% endblock %}

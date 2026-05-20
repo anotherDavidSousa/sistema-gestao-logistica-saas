@@ -293,3 +293,191 @@ def frota_ultima_posicao(request, placa):
         'capturado_em': capturado_local.strftime('%d/%m/%Y %H:%M'),
         'ignicao': pos['ignicao'],
     })
+
+
+# ── Histórico de frota ────────────────────────────────────────────────────────
+
+@staff_member_required
+def frota_historico_view(request):
+    """Renderiza a página de histórico de posições de um veículo."""
+    from .models import PosicaoVeiculo, Cavalo
+    from django.utils import timezone as dj_tz
+
+    cutoff = dj_tz.now() - timedelta(days=90)
+    placas_com_dados = list(
+        PosicaoVeiculo.objects
+        .filter(capturado_em__gte=cutoff)
+        .values_list('placa', flat=True)
+        .distinct()
+        .order_by('placa')
+    )
+    cavalos = {c.placa.upper(): c for c in Cavalo.objects.all()}
+    opcoes = []
+    for placa in placas_com_dados:
+        c = cavalos.get(placa.upper())
+        motorista = ''
+        if c and hasattr(c, 'motorista') and c.motorista:
+            motorista = c.motorista.nome
+        opcoes.append({
+            'placa': placa,
+            'label': f'{placa}' + (f' — {motorista}' if motorista else ''),
+        })
+    return render(request, 'admin/historico_frota.html', {
+        'title': 'Historico de Frota',
+        'has_permission': True,
+        'opcoes_veiculos': json.dumps(opcoes, ensure_ascii=False),
+    })
+
+
+def _haversine(lat1, lng1, lat2, lng2):
+    import math
+    R = 6371.0
+    d_lat = math.radians(lat2 - lat1)
+    d_lng = math.radians(lng2 - lng1)
+    a = (math.sin(d_lat / 2) ** 2
+         + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2))
+         * math.sin(d_lng / 2) ** 2)
+    return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+
+def _point_in_polygon(lat, lng, polygon):
+    """Ray-casting point-in-polygon. polygon = [[lat, lng], ...]"""
+    n = len(polygon)
+    inside = False
+    j = n - 1
+    for i in range(n):
+        xi, yi = polygon[i]
+        xj, yj = polygon[j]
+        if ((yi > lat) != (yj > lat)) and (
+            lng < (xj - xi) * (lat - yi) / (yj - yi + 1e-10) + xi
+        ):
+            inside = not inside
+        j = i
+    return inside
+
+
+@staff_member_required
+def frota_historico_api(request):
+    """
+    API JSON para o historico de posicoes de um veiculo.
+    Params: placa, data_inicio (YYYY-MM-DD), data_fim (YYYY-MM-DD)
+    """
+    import math
+    from .models import PosicaoVeiculo, CidadeEntrega
+    from django.utils import timezone as dj_tz
+
+    placa = (request.GET.get('placa') or '').strip().upper()
+    if not placa:
+        return JsonResponse({'erro': 'Parametro placa obrigatorio.'}, status=400)
+
+    data_inicio = _parse_date(request.GET.get('data_inicio', '')) or date.today()
+    data_fim = _parse_date(request.GET.get('data_fim', '')) or data_inicio
+
+    try:
+        import pytz
+        tz = pytz.timezone('America/Sao_Paulo')
+    except Exception:
+        tz = None
+
+    def make_aware_local(d, t_min=True):
+        from datetime import time as dtime
+        t = dtime.min if t_min else dtime(23, 59, 59)
+        dt = datetime.combine(d, t)
+        if tz:
+            return dj_tz.make_aware(dt, tz)
+        return dj_tz.make_aware(dt)
+
+    dt_inicio = make_aware_local(data_inicio, t_min=True)
+    dt_fim = make_aware_local(data_fim, t_min=False)
+
+    posicoes_qs = list(
+        PosicaoVeiculo.objects
+        .filter(placa=placa, capturado_em__range=(dt_inicio, dt_fim))
+        .order_by('capturado_em')
+        .values('lat', 'lng', 'ignicao', 'capturado_em')
+    )
+
+    if not posicoes_qs:
+        return JsonResponse({'posicoes': [], 'stats': None, 'aviso': 'Sem dados para este periodo.'})
+
+    def fmt_ts(ts):
+        local = dj_tz.localtime(ts, tz) if (tz and dj_tz.is_aware(ts)) else ts
+        return local.strftime('%d/%m/%Y %H:%M')
+
+    # Serializa posicoes
+    posicoes_out = [
+        {'lat': p['lat'], 'lng': p['lng'], 'ignicao': p['ignicao'], 'ts': fmt_ts(p['capturado_em'])}
+        for p in posicoes_qs
+    ]
+
+    # KM total
+    km_total = 0.0
+    for i in range(1, len(posicoes_qs)):
+        km_total += _haversine(
+            posicoes_qs[i - 1]['lat'], posicoes_qs[i - 1]['lng'],
+            posicoes_qs[i]['lat'], posicoes_qs[i]['lng'],
+        )
+
+    # Paradas longas (ignicao off >= 15 min consecutivos)
+    PARADA_MIN = 15
+    paradas = []
+    i = 0
+    while i < len(posicoes_qs):
+        if not posicoes_qs[i]['ignicao']:
+            j = i
+            while j < len(posicoes_qs) and not posicoes_qs[j]['ignicao']:
+                j += 1
+            dur = (posicoes_qs[j - 1]['capturado_em'] - posicoes_qs[i]['capturado_em']).total_seconds() / 60
+            if dur >= PARADA_MIN:
+                mid = (i + j - 1) // 2
+                paradas.append({
+                    'lat': posicoes_qs[mid]['lat'],
+                    'lng': posicoes_qs[mid]['lng'],
+                    'inicio': fmt_ts(posicoes_qs[i]['capturado_em']),
+                    'fim': fmt_ts(posicoes_qs[j - 1]['capturado_em']),
+                    'duracao_min': round(dur),
+                })
+            i = j
+        else:
+            i += 1
+
+    # Cidades ativas visitadas
+    cidades_visitadas = []
+    for c in CidadeEntrega.objects.filter(ativa_semana=True).values('nome', 'poligono'):
+        poly = c.get('poligono')
+        if not poly:
+            continue
+        if isinstance(poly, str):
+            import json as _j
+            try:
+                poly = _j.loads(poly)
+            except Exception:
+                continue
+        for p in posicoes_qs:
+            if _point_in_polygon(p['lat'], p['lng'], poly):
+                cidades_visitadas.append(c['nome'])
+                break
+
+    # Locais fixos visitados
+    locais_visitados = []
+    for loc in LOCAIS_FIXOS:
+        poly = loc.get('poligono')
+        if not poly:
+            continue
+        for p in posicoes_qs:
+            if _point_in_polygon(p['lat'], p['lng'], poly):
+                locais_visitados.append({'id': loc['id'], 'nome': loc['nome']})
+                break
+
+    return JsonResponse({
+        'posicoes': posicoes_out,
+        'stats': {
+            'km_total': round(km_total, 1),
+            'total_pontos': len(posicoes_qs),
+            'paradas_longas': paradas,
+            'cidades_visitadas': sorted(cidades_visitadas),
+            'locais_visitados': locais_visitados,
+            'periodo_inicio': fmt_ts(posicoes_qs[0]['capturado_em']),
+            'periodo_fim': fmt_ts(posicoes_qs[-1]['capturado_em']),
+        },
+    })

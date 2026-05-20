@@ -224,6 +224,22 @@ JAZZMIN_SETTINGS = {
     "default_icon_parents": "fas fa-folder",
     "default_icon_children": "fas fa-circle",
 
+    # ── Links customizados no sidebar (por app) ───────────────────────────────
+    "custom_links": {
+        "core": [
+            {
+                "name": "Mapa de Frota",
+                "url": "admin_mapa",
+                "icon": "fas fa-map-marked-alt",
+            },
+            {
+                "name": "Historico de Frota",
+                "url": "admin_frota_historico",
+                "icon": "fas fa-route",
+            },
+        ],
+    },
+
     # ── Ordem do sidebar ──────────────────────────────────────────────────────
     "order_with_respect_to": [
         "core",
