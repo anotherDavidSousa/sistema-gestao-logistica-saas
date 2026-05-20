@@ -456,3 +456,42 @@ class CidadeEntrega(models.Model):
             return [{'lat': p[0], 'lng': p[1]} for p in pts if len(p) >= 2]
         except Exception:
             return []
+
+
+class PosicaoVeiculo(models.Model):
+    """
+    Snapshot periódico da posição de cada veículo rastreado.
+    Gravado a cada 5 minutos pelo management command 'salvar_posicoes'.
+    """
+    placa = models.CharField(
+        max_length=10,
+        db_index=True,
+        verbose_name='Placa',
+    )
+    lat = models.FloatField(verbose_name='Latitude')
+    lng = models.FloatField(verbose_name='Longitude')
+    ignicao = models.BooleanField(verbose_name='Ignição')
+    capturado_em = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name='Capturado em',
+        help_text='Momento em que este snapshot foi salvo pelo sistema.',
+    )
+    ultima_atualizacao_rastreador = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name='Últ. atualização rastreador',
+        help_text='Timestamp reportado pelo próprio rastreador GPS. '
+                  'Se divergir muito de capturado_em, o rastreador pode estar com falha.',
+    )
+
+    class Meta:
+        verbose_name = 'Posição de Veículo'
+        verbose_name_plural = 'Posições de Veículos'
+        indexes = [
+            models.Index(fields=['placa', 'capturado_em']),
+        ]
+        ordering = ['-capturado_em']
+
+    def __str__(self):
+        ts = self.capturado_em.strftime('%d/%m/%Y %H:%M') if self.capturado_em else '—'
+        return f'{self.placa} @ {ts}'

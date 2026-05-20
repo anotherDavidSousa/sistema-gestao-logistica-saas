@@ -50,6 +50,38 @@ services:
     networks:
       - shared-network
 
+  cron:
+    build: .
+    container_name: filial16-cron
+    restart: always
+    command: >
+      sh -c "echo 'Cron iniciado — salvar_posicoes a cada 5 min' &&
+             while true; do
+               python manage.py salvar_posicoes;
+               sleep 300;
+             done"
+    environment:
+      POSTGRES_HOST: shared-postgres
+      POSTGRES_DB: ${DJANGO_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      DJANGO_DEBUG: 0
+      ALLOWED_HOSTS: localhost
+      CSRF_TRUSTED_ORIGINS: http://localhost
+      MINIO_ENDPOINT: filial16-minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      MINIO_BUCKET: ${MINIO_BUCKET}
+      MINIO_USE_SSL: 0
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
+      INOPRIME_API_URL: http://inoprime-api:8001
+    volumes:
+      - .:/app
+    depends_on:
+      - web
+    networks:
+      - shared-network
+
   minio:
     image: minio/minio:latest
     container_name: filial16-minio
