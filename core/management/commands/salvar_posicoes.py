@@ -11,82 +11,23 @@ Uso:
 
 Chamado automaticamente a cada 5 minutos pelo serviço 'cron' no Docker Compose.
 
-Sobre o campo ultima_atualizacao_rastreador:
-    O campo tenta capturar o timestamp interno do rastreador GPS — indica
-    quando o dispositivo enviou a última posição válida. Se este valor divergir
-    muito de capturado_em, o rastreador pode estar com falha ou sem sinal.
-    Candidatos testados (ordem de prioridade): ultima_atualizacao, data_posicao,
-    posicao_data, dt_gps, gps_data, data_gps, posicao_em, updated_at.
-    Se nenhum for encontrado, o campo fica None e um aviso é exibido na
-    primeira execução.
+Nota sobre ultima_atualizacao_rastreador:
+    O endpoint /veiculos do TrackerPrime não retorna o timestamp do último sinal
+    do rastreador (campo "Data" visível no card do mapa). Esse dado só está
+    disponível na tela de detalhe por veículo. Por ora o campo é salvo como None.
+    Quando a página de histórico for implementada, poderemos buscar esse dado
+    separadamente via /rota/{id}/hoje e pegar o timestamp da última posição.
 """
 
 import logging
-from datetime import datetime, timezone
 
 import requests
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
-from django.utils.dateparse import parse_datetime
-from django.utils import timezone as dj_timezone
 
 from core.models import PosicaoVeiculo
 
 log = logging.getLogger(__name__)
-
-# Candidatos para o timestamp do rastreador — testados na ordem
-_TIMESTAMP_CANDIDATOS = [
-    'ultima_atualizacao',
-    'data_posicao',
-    'posicao_data',
-    'dt_gps',
-    'gps_data',
-    'data_gps',
-    'posicao_em',
-    'updated_at',
-    'updatedAt',
-    'last_update',
-]
-
-
-def _parse_ts(valor: str | None) -> datetime | None:
-    """Tenta converter uma string de data/hora em datetime aware (UTC)."""
-    if not valor:
-        return None
-    try:
-        dt = parse_datetime(str(valor))
-        if dt is None:
-            # Tenta formato comum do TrackerPrime: 'DD/MM/YYYY HH:MM:SS'
-            for fmt in ('%d/%m/%Y %H:%M:%S', '%Y-%m-%d %H:%M:%S', '%Y-%m-%dT%H:%M:%S'):
-                try:
-                    dt = datetime.strptime(str(valor), fmt)
-                    break
-                except ValueError:
-                    continue
-        if dt and dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-        return dt
-    except Exception:
-        return None
-
-
-def _campo_ts_rastreador(veiculo: dict, aviso_dado: list) -> datetime | None:
-    """Extrai o timestamp do rastreador testando os candidatos conhecidos."""
-    for campo in _TIMESTAMP_CANDIDATOS:
-        valor = veiculo.get(campo)
-        if valor is not None:
-            return _parse_ts(valor)
-    # Nenhum candidato encontrado — emite aviso apenas uma vez por execução
-    if not aviso_dado:
-        campos_disponiveis = list(veiculo.keys())
-        log.warning(
-            'Não foi possível identificar o campo de timestamp do rastreador. '
-            'Campos disponíveis no veículo: %s  '
-            'Edite _TIMESTAMP_CANDIDATOS em salvar_posicoes.py para mapear o campo correto.',
-            campos_disponiveis,
-        )
-        aviso_dado.append(True)
-    return None
 
 
 class Command(BaseCommand):
@@ -131,7 +72,6 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING('Nenhum veículo retornado pela API.'))
             return
 
-        aviso_dado: list = []
         registros: list[PosicaoVeiculo] = []
 
         for v in veiculos:
@@ -139,30 +79,33 @@ class Command(BaseCommand):
             if not placa:
                 continue
 
-            lat = v.get('lat') or v.get('latitude')
-            lng = v.get('lng') or v.get('longitude')
-            if lat is None or lng is None:
+            # Coordenadas — chegam como string ou float dependendo da versão da API
+            try:
+                lat = float(v.get('lat') or v.get('latitude') or 0)
+                lng = float(v.get('lng') or v.get('longitude') or 0)
+            except (TypeError, ValueError):
+                log.debug('Veículo %s com coordenadas inválidas — ignorado.', placa)
+                continue
+
+            if lat == 0 and lng == 0:
                 log.debug('Veículo %s sem coordenadas — ignorado.', placa)
                 continue
 
             ignicao_raw = v.get('ignicao', 0)
             ignicao = bool(ignicao_raw) if ignicao_raw is not None else False
 
-            ts_rastreador = _campo_ts_rastreador(v, aviso_dado)
-
             if dry_run:
                 self.stdout.write(
                     f'  {placa:10s}  lat={lat:.5f}  lng={lng:.5f}  '
-                    f'ign={"ON" if ignicao else "off"}  '
-                    f'ts_rastreador={ts_rastreador}'
+                    f'ign={"ON " if ignicao else "off"}'
                 )
             else:
                 registros.append(PosicaoVeiculo(
                     placa=placa,
-                    lat=float(lat),
-                    lng=float(lng),
+                    lat=lat,
+                    lng=lng,
                     ignicao=ignicao,
-                    ultima_atualizacao_rastreador=ts_rastreador,
+                    ultima_atualizacao_rastreador=None,  # não disponível no endpoint /veiculos
                 ))
 
         if not dry_run:
