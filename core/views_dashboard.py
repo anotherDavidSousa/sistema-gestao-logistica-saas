@@ -173,12 +173,14 @@ def _inoprime_url(path):
 
 @staff_member_required
 def mapa_view(request):
-    """Renderiza a pagina do mapa interativo."""
-    return render(request, 'admin/mapa.html', {
+    """Renderiza a pagina do mapa interativo (mantida por compatibilidade com o dashboard)."""
+    from django.contrib.admin import site as admin_site
+    ctx = admin_site.each_context(request)
+    ctx.update({
         'title': 'Mapa de Frota',
-        'has_permission': True,
         'locais_fixos_json': json.dumps(LOCAIS_FIXOS, ensure_ascii=False),
     })
+    return render(request, 'admin/mapa.html', ctx)
 
 
 @staff_member_required
@@ -295,6 +297,7 @@ def frota_ultima_posicao(request, placa):
     })
 
 
+
 # ── Histórico de frota ────────────────────────────────────────────────────────
 
 @staff_member_required
@@ -302,6 +305,7 @@ def frota_historico_view(request):
     """Renderiza a página de histórico de posições de um veículo."""
     from .models import PosicaoVeiculo, Cavalo
     from django.utils import timezone as dj_tz
+    from django.contrib.admin import site as admin_site
 
     cutoff = dj_tz.now() - timedelta(days=90)
     placas_com_dados = list(
@@ -320,13 +324,15 @@ def frota_historico_view(request):
             motorista = c.motorista.nome
         opcoes.append({
             'placa': placa,
-            'label': f'{placa}' + (f' — {motorista}' if motorista else ''),
+            'label': placa + (' — ' + motorista if motorista else ''),
         })
-    return render(request, 'admin/historico_frota.html', {
+
+    ctx = admin_site.each_context(request)
+    ctx.update({
         'title': 'Historico de Frota',
-        'has_permission': True,
         'opcoes_veiculos': json.dumps(opcoes, ensure_ascii=False),
     })
+    return render(request, 'admin/historico_frota.html', ctx)
 
 
 def _haversine(lat1, lng1, lat2, lng2):
@@ -362,7 +368,6 @@ def frota_historico_api(request):
     API JSON para o historico de posicoes de um veiculo.
     Params: placa, data_inicio (YYYY-MM-DD), data_fim (YYYY-MM-DD)
     """
-    import math
     from .models import PosicaoVeiculo, CidadeEntrega
     from django.utils import timezone as dj_tz
 
@@ -404,7 +409,6 @@ def frota_historico_api(request):
         local = dj_tz.localtime(ts, tz) if (tz and dj_tz.is_aware(ts)) else ts
         return local.strftime('%d/%m/%Y %H:%M')
 
-    # Serializa posicoes
     posicoes_out = [
         {'lat': p['lat'], 'lng': p['lng'], 'ignicao': p['ignicao'], 'ts': fmt_ts(p['capturado_em'])}
         for p in posicoes_qs

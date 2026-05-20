@@ -6,7 +6,6 @@ from fila import n8n_api
 from core.views_dashboard import (
     dashboard_api,
     global_search_api,
-    mapa_view,
     mapa_veiculos_api,
     mapa_cidades_api,
     mapa_cidade_toggle,
@@ -23,8 +22,7 @@ urlpatterns = [
     path('admin/dashboard-api/', dashboard_api, name='admin_dashboard_api'),
     path('admin/global-search/', global_search_api, name='admin_global_search'),
 
-    # -- Mapa interativo -------------------------------------------------------
-    path('admin/mapa/', mapa_view, name='admin_mapa'),
+    # -- APIs do mapa (usadas pelo dashboard) ----------------------------------
     path('admin/mapa-api/veiculos/', mapa_veiculos_api, name='admin_mapa_veiculos'),
     path('admin/mapa-api/cidades/', mapa_cidades_api, name='admin_mapa_cidades'),
     path('admin/mapa-api/cidades/<int:pk>/toggle/', mapa_cidade_toggle, name='admin_mapa_cidade_toggle'),

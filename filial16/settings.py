@@ -228,11 +228,6 @@ JAZZMIN_SETTINGS = {
     "custom_links": {
         "core": [
             {
-                "name": "Mapa de Frota",
-                "url": "admin_mapa",
-                "icon": "fas fa-map-marked-alt",
-            },
-            {
                 "name": "Historico de Frota",
                 "url": "admin_frota_historico",
                 "icon": "fas fa-route",
