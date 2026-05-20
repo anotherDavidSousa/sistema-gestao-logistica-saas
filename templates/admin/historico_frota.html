@@ -52,8 +52,8 @@
 .hist-card .card-sub { font-size:11px; color:var(--f16-text-muted,#6b7280); margin-top:3px; }
 
 /* Conteudo principal */
-.hist-main { display:flex; gap:14px; min-height:480px; }
-#hist-map { flex:1; min-width:0; border-radius:10px; overflow:hidden;
+.hist-main { display:flex; gap:14px; height:500px; min-height:480px; }
+#hist-map { flex:1; min-width:0; height:100%; border-radius:10px; overflow:hidden;
   border:1px solid var(--f16-border,#e5e7eb); min-height:480px; }
 
 /* Painel lateral */
@@ -218,12 +218,22 @@ document.addEventListener('DOMContentLoaded', () => {
 // ── Inicializa mapa Leaflet ───────────────────────────────────────────────────
 function initMap() {
   if (leafletMap) return;
-  document.getElementById('hist-map-placeholder').remove();
-  leafletMap = L.map('hist-map').setView([-19.47, -42.54], 10);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-    maxZoom: 19,
-  }).addTo(leafletMap);
+  // Remove placeholder se ainda existir (pode já ter sido removido em tentativa anterior)
+  const ph = document.getElementById('hist-map-placeholder');
+  if (ph) ph.remove();
+  // Garante altura definida antes do Leaflet inicializar o container
+  const mapEl = document.getElementById('hist-map');
+  if (!mapEl.style.height) mapEl.style.height = '480px';
+  try {
+    leafletMap = L.map('hist-map').setView([-19.47, -42.54], 10);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      maxZoom: 19,
+    }).addTo(leafletMap);
+  } catch (e) {
+    leafletMap = null;
+    throw new Error('Falha ao inicializar mapa: ' + e.message);
+  }
 }
 
 // ── Busca e desenha rota ──────────────────────────────────────────────────────
