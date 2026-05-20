@@ -190,21 +190,24 @@ class _CarretaClassificacaoFilter(admin.SimpleListFilter):
 
     def lookups(self, request, model_admin):
         return [
+            ("tudo",      "Classificação (Todos)"),
             ("agregado",  "Agregamento"),
             ("frota",     "Frota"),
             ("terceiro",  "Terceiro"),
         ]
 
     def queryset(self, request, queryset):
+        if self.value() == "tudo":
+            return queryset          # mostra tudo sem restricao
         if self.value():
             return queryset.filter(classificacao=self.value())
         return queryset
 
     def choices(self, changelist):
-        # Substitui o label "All" por "Todas"
+        # Remove o "All" padrao do Django (e junto o separador "--------")
         for choice in super().choices(changelist):
-            if choice["display"] == "All":
-                choice["display"] = "Todas"
+            if choice.get("display") == "All":
+                continue
             yield choice
 
 
@@ -214,19 +217,22 @@ class _CarretaSituacaoFilter(admin.SimpleListFilter):
 
     def lookups(self, request, model_admin):
         return [
+            ("tudo",    "Situação (Todos)"),
             ("ativo",   "Ativas"),
             ("parado",  "Paradas"),
         ]
 
     def queryset(self, request, queryset):
+        if self.value() == "tudo":
+            return queryset
         if self.value():
             return queryset.filter(situacao=self.value())
         return queryset
 
     def choices(self, changelist):
         for choice in super().choices(changelist):
-            if choice["display"] == "All":
-                choice["display"] = "Todas"
+            if choice.get("display") == "All":
+                continue
             yield choice
 
 
@@ -236,11 +242,14 @@ class _CarretaDisponivelFilter(admin.SimpleListFilter):
 
     def lookups(self, request, model_admin):
         return [
-            ("sim", "Disponíveis (Agregamento)"),
-            ("nao", "Já Agregadas (Agregamento)"),
+            ("tudo", "Disponibilidade (Todos)"),
+            ("sim",  "Disponíveis (Agregamento)"),
+            ("nao",  "Já Agregadas (Agregamento)"),
         ]
 
     def queryset(self, request, queryset):
+        if self.value() == "tudo":
+            return queryset
         qs = queryset.filter(classificacao="agregado")
         from .models import Cavalo as _Cavalo
         placas_usadas = set(
@@ -255,8 +264,8 @@ class _CarretaDisponivelFilter(admin.SimpleListFilter):
 
     def choices(self, changelist):
         for choice in super().choices(changelist):
-            if choice["display"] == "All":
-                choice["display"] = "Todas"
+            if choice.get("display") == "All":
+                continue
             yield choice
 
 
