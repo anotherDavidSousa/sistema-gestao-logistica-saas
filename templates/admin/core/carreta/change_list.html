@@ -1,9 +1,10 @@
 {% extends "admin/change_list.html" %}
 {% load i18n static %}
 
-{% block content %}
-{% if carreta_cards %}
+{% block extrahead %}
+{{ block.super }}
 <style>
+/* ── Cards ─────────────────────────────────────────────── */
 .carreta-cards {
   display: flex; flex-wrap: wrap; gap: 12px;
   margin-bottom: 20px; max-width: 100%;
@@ -28,26 +29,16 @@
 .carreta-card.verde .val  { color: #15803d; }
 .carreta-card.azul  .val  { color: #1e40af; }
 .carreta-card.cinza .val  { color: #6b7280; }
-</style>
 
-<div class="carreta-cards">
-  <div class="carreta-card azul">
-    <div class="lbl"><i class="fas fa-trailer"></i> Total agregamento</div>
-    <div class="val">{{ carreta_cards.total_agr }}</div>
-    <div class="sub">carretas com classificação agregado</div>
-  </div>
-  <div class="carreta-card cinza">
-    <div class="lbl"><i class="fas fa-link"></i> Já agregadas</div>
-    <div class="val">{{ carreta_cards.ja_agregadas }}</div>
-    <div class="sub">vinculadas a um cavalo ativo</div>
-  </div>
-  <div class="carreta-card verde">
-    <div class="lbl"><i class="fas fa-check-circle"></i> Disponíveis</div>
-    <div class="val">{{ carreta_cards.disponiveis }}</div>
-    <div class="sub">aguardando cavalo</div>
-  </div>
-</div>
-{% endif %}
-
-{{ block.super }}
-{% endblock %}
+/* ── Largura das colunas da tabela ─────────────────────── */
+#result_list th.column-placa,
+#result_list td.field-placa          { width: 90px;  white-space: nowrap; }
+#result_list th.column-marca,
+#result_list td.field-marca          { width: 130px; }
+#result_list th.column-tipo_display,
+#result_list td.field-tipo_display   { width: 120px; white-space: nowrap; }
+#result_list th.column-ano,
+#result_list td.field-ano            { width: 55px;  text-align: center; }
+#result_list th.column-classificacao,
+#result_list td.field-classificacao  { width: 110px; }
+#result_list 
