@@ -73,10 +73,12 @@ class Command(BaseCommand):
             return
 
         registros: list[PosicaoVeiculo] = []
+        ignorados = 0
 
         for v in veiculos:
             placa = (v.get('placa') or '').strip().upper()
             if not placa:
+                ignorados += 1
                 continue
 
             # Coordenadas — chegam como string ou float dependendo da versão da API
@@ -85,10 +87,12 @@ class Command(BaseCommand):
                 lng = float(v.get('lng') or v.get('longitude') or 0)
             except (TypeError, ValueError):
                 log.debug('Veículo %s com coordenadas inválidas — ignorado.', placa)
+                ignorados += 1
                 continue
 
             if lat == 0 and lng == 0:
                 log.debug('Veículo %s sem coordenadas — ignorado.', placa)
+                ignorados += 1
                 continue
 
             ignicao_raw = v.get('ignicao', 0)
@@ -99,21 +103,19 @@ class Command(BaseCommand):
                     f'  {placa:10s}  lat={lat:.5f}  lng={lng:.5f}  '
                     f'ign={"ON " if ignicao else "off"}'
                 )
-            else:
-                registros.append(PosicaoVeiculo(
-                    placa=placa,
-                    lat=lat,
-                    lng=lng,
-                    ignicao=ignicao,
-                    ultima_atualizacao_rastreador=None,  # não disponível no endpoint /veiculos
-                ))
 
+            # Acumula para bulk_create (e conta no dry-run também)
+            registros.append(PosicaoVeiculo(
+                placa=placa,
+                lat=lat,
+                lng=lng,
+                ignicao=ignicao,
+                ultima_atualizacao_rastreador=None,  # não disponível no endpoint /veiculos
+            ))
+
+        extra = f' ({ignorados} sem coordenadas ignorados)' if ignorados else ''
         if not dry_run:
             PosicaoVeiculo.objects.bulk_create(registros)
-            self.stdout.write(
-                self.style.SUCCESS(f'Salvas {len(registros)} posições.')
-            )
+            self.stdout.write(self.style.SUCCESS('Salvas ' + str(len(registros)) + ' posicoes.' + extra))
         else:
-            self.stdout.write(self.style.SUCCESS(
-                f'Dry-run: {len(registros)} registros seriam salvos.'
-            ))
+            self.stdout.write(self.style.SUCCESS('Dry-run: ' + str(len(registros)) + ' registros seriam salvos.' + extra))

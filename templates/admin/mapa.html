@@ -225,19 +225,23 @@
 [data-bs-theme="dark"] .leaflet-popup-tip { background: #1e293b; }
 
 /* ── Popup do marcador ────────────────────────────────────────────────────────── */
-.veiculo-popup { font-size: 12.5px; min-width: 180px; }
-.veiculo-popup .placa { font-size: 15px; font-weight: 800; letter-spacing: .06em; margin-bottom: 4px; }
-.veiculo-popup .tipo  { font-size: 11.5px; color: #6b7280; margin-bottom: 6px; }
-.veiculo-popup .row   { display:flex; justify-content:space-between; font-size:11.5px; padding:2px 0; }
+.veiculo-popup { font-size: 12.5px; min-width: 210px; max-width: 280px; }
+.veiculo-popup .placa { font-size: 16px; font-weight: 800; letter-spacing: .06em; margin-bottom: 6px; }
+.veiculo-popup .pop-row {
+  display: flex; align-items: flex-start; gap: 6px;
+  font-size: 11.5px; padding: 3px 0; border-top: 1px solid #e5e7eb;
+}
+.veiculo-popup .pop-icon { width: 14px; text-align: center; flex-shrink: 0; color: #6b7280; margin-top: 1px; }
+.veiculo-popup .pop-val  { flex: 1; color: #374151; line-height: 1.4; }
+.veiculo-popup .pop-loading { color: #9ca3af; font-style: italic; }
+[data-bs-theme="dark"] .veiculo-popup .pop-row { border-color: #334155; }
+[data-bs-theme="dark"] .veiculo-popup .pop-val  { color: #e2e8f0; }
 .veiculo-popup .badge {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 20px;
-  font-size: 11px;
-  font-weight: 600;
+  display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600;
 }
 .badge-on  { background:#dcfce7; color:#16a34a; }
 .badge-off { background:#f1f5f9; color:#6b7280; }
+[data-bs-theme="dark"] .badge-off { background:#1e293b; color:#94a3b8; }
 
 /* ── Loading overlay ────────────────────────────────────────────────────────── */
 #mapa-loading {
@@ -433,28 +437,29 @@ function renderVeiculos(veiculos) {
     const ign = v.ignicao === 1 || v.ignicao === true;
     const marker = L.marker([lat, lng], { icon: makeIcon(ign) });
 
-    const tipoBadge = v.tipo_id
-      ? `<span style="font-size:11px;color:#6b7280;">#tipo${v.tipo_id}</span>`
-      : '';
     const ignBadge = ign
-      ? `<span class="badge badge-on">🟢 Ligada</span>`
-      : `<span class="badge badge-off">🔴 Desligada</span>`;
+      ? `<span class="badge badge-on">● Ligada</span>`
+      : `<span class="badge badge-off">● Desligada</span>`;
 
+    // Popup inicial — endereço e timestamp são carregados de forma lazy ao abrir
+    const popupId = `pop-${v.id}`;
     marker.bindPopup(`
-      <div class="veiculo-popup">
+      <div class="veiculo-popup" id="${popupId}">
         <div class="placa">${esc(v.placa || '–')}</div>
-        <div class="tipo">${esc(v.tipo || v.icone || '')} ${tipoBadge}</div>
-        <div class="row">
-          <span>Ignição:</span>${ignBadge}
+        <div class="pop-row">
+          <span class="pop-icon"><i class="fas fa-key"></i></span>
+          <span class="pop-val">${ignBadge}</span>
         </div>
-        <div class="row">
-          <span>ID:</span><span style="font-weight:600;">${v.id || '–'}</span>
+        <div class="pop-row" id="${popupId}-end">
+          <span class="pop-icon"><i class="fas fa-map-marker-alt"></i></span>
+          <span class="pop-val pop-loading">Buscando endereço…</span>
         </div>
-        <div class="row" style="font-size:10.5px;color:#9ca3af;margin-top:4px;">
-          ${lat.toFixed(6)}, ${lng.toFixed(6)}
+        <div class="pop-row" id="${popupId}-ts">
+          <span class="pop-icon"><i class="fas fa-clock"></i></span>
+          <span class="pop-val pop-loading">Buscando última posição…</span>
         </div>
       </div>
-    `, { maxWidth: 240 });
+    `, { maxWidth: 290 });
 
     // Clique no marcador destaca item na sidebar
     marker.on('click', () => {
@@ -462,8 +467,71 @@ function renderVeiculos(veiculos) {
       if (currentTab !== 'veiculos') switchTab('veiculos');
     });
 
-    marker._veiculoId = v.id;
+    marker._veiculoId  = v.id;
+    marker._veiculoPlaca = v.placa;
+    marker._lat = lat;
+    marker._lng = lng;
     markerLayer.addLayer(marker);
+  });
+
+  // Carrega endereço + timestamp quando o popup abre
+  map.on('popupopen', function(e) {
+    const marker = e.sourceTarget;
+    if (!marker._veiculoPlaca) return;
+
+    const pid   = `pop-${marker._veiculoId}`;
+    const mlat  = marker._lat;
+    const mlng  = marker._lng;
+    const placa = marker._veiculoPlaca;
+
+    // ── Endereço via Nominatim (OpenStreetMap) ─────────────────────────────
+    const endEl = document.getElementById(`${pid}-end`);
+    if (endEl) {
+      fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${mlat}&lon=${mlng}&zoom=14&addressdetails=1`,
+        { headers: { 'Accept-Language': 'pt-BR,pt;q=0.9' } }
+      )
+      .then(r => r.json())
+      .then(data => {
+        const a = data.address || {};
+        // Monta resumo: "Cidade, Estado" ou endereço simplificado
+        const partes = [
+          a.road || a.pedestrian,
+          a.neighbourhood || a.suburb,
+          a.city || a.town || a.village || a.municipality,
+          a.state,
+        ].filter(Boolean);
+        const resumo = partes.slice(0, 3).join(', ') || data.display_name || 'Endereço não encontrado';
+        const valEl = endEl.querySelector('.pop-val');
+        if (valEl) { valEl.textContent = resumo; valEl.classList.remove('pop-loading'); }
+      })
+      .catch(() => {
+        const valEl = endEl ? endEl.querySelector('.pop-val') : null;
+        if (valEl) valEl.textContent = 'Endereço indisponível';
+      });
+    }
+
+    // ── Última posição registrada (nosso banco) ────────────────────────────
+    const tsEl = document.getElementById(`${pid}-ts`);
+    if (tsEl) {
+      fetch(`/admin/mapa-api/posicao/${encodeURIComponent(placa)}/`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        const valEl = tsEl.querySelector('.pop-val');
+        if (!valEl) return;
+        if (data && data.capturado_em) {
+          valEl.textContent = `Registrado em ${data.capturado_em}`;
+          valEl.classList.remove('pop-loading');
+        } else {
+          valEl.textContent = 'Sem histórico registrado';
+          valEl.classList.remove('pop-loading');
+        }
+      })
+      .catch(() => {
+        const valEl = tsEl ? tsEl.querySelector('.pop-val') : null;
+        if (valEl) { valEl.textContent = 'Indisponível'; valEl.classList.remove('pop-loading'); }
+      });
+    }
   });
 }
 

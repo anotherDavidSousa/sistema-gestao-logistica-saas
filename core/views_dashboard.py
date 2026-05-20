@@ -265,3 +265,31 @@ def mapa_cidade_toggle(request, pk):
         'nome': cidade.nome,
         'ativa_semana': cidade.ativa_semana,
     })
+
+
+@staff_member_required
+def frota_ultima_posicao(request, placa):
+    """
+    Retorna a última posição registrada de um veículo pelo cron.
+    Usado pelo popup do mapa para mostrar 'Última posição registrada em ...'.
+    """
+    from .models import PosicaoVeiculo
+    placa = placa.strip().upper()
+    pos = (
+        PosicaoVeiculo.objects
+        .filter(placa=placa)
+        .order_by('-capturado_em')
+        .values('capturado_em', 'ignicao', 'lat', 'lng')
+        .first()
+    )
+    if not pos:
+        return JsonResponse({'erro': 'Sem histórico'}, status=404)
+
+    # Formata data no fuso horário local (America/Sao_Paulo via USE_TZ + TIME_ZONE)
+    from django.utils import timezone as dj_tz
+    capturado = pos['capturado_em']
+    capturado_local = dj_tz.localtime(capturado) if dj_tz.is_aware(capturado) else capturado
+    return JsonResponse({
+        'capturado_em': capturado_local.strftime('%d/%m/%Y %H:%M'),
+        'ignicao': pos['ignicao'],
+    })

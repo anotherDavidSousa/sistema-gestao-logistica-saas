@@ -10,6 +10,7 @@ from core.views_dashboard import (
     mapa_veiculos_api,
     mapa_cidades_api,
     mapa_cidade_toggle,
+    frota_ultima_posicao,
 )
 
 urlpatterns = [
@@ -25,6 +26,7 @@ urlpatterns = [
     path('admin/mapa-api/veiculos/', mapa_veiculos_api, name='admin_mapa_veiculos'),
     path('admin/mapa-api/cidades/', mapa_cidades_api, name='admin_mapa_cidades'),
     path('admin/mapa-api/cidades/<int:pk>/toggle/', mapa_cidade_toggle, name='admin_mapa_cidade_toggle'),
+    path('admin/mapa-api/posicao/<str:placa>/', frota_ultima_posicao, name='admin_frota_ultima_posicao'),
 
     path('admin/', admin.site.urls),
 
