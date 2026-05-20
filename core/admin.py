@@ -3,7 +3,7 @@ from django.contrib import admin
 from django.contrib.admin.models import LogEntry
 from django.contrib.admin.widgets import RelatedFieldWidgetWrapper
 from django.db.models import Q, Case, When, Value, IntegerField, F, CharField
-from django.utils.html import format_html
+from django.utils.html import format_html, mark_safe
 from .models import (
     Proprietario,
     Gestor,
@@ -536,17 +536,15 @@ class CidadeEntregaAdmin(admin.ModelAdmin):
     list_editable = ("ativa_semana",)
     ordering      = ("nome",)
 
+    # Tudo em um unico fieldset -> uma unica aba no Jazzmin
     fieldsets = (
         (None, {
-            "fields": ("nome", "cor", "ativa_semana"),
-        }),
-        ("Área no Mapa — 2 Pontos Diagonais (retangulo automatico)", {
-            "description": _DIAGRAM_HTML,
+            "description": mark_safe(_DIAGRAM_HTML),
             "fields": (
+                "nome", "cor", "ativa_semana",
                 ("lat_nw", "lng_nw"),
                 ("lat_se", "lng_se"),
             ),
-            "classes": ("wide",),
         }),
     )
 
