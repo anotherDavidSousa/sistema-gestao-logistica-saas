@@ -30,21 +30,29 @@
 .carreta-card.cinza .val  { color: #6b7280; }
 
 #result_list th.column-placa,
-#result_list td.field-placa          { width: 90px;  white-space: nowrap; }
+#result_list td.field-placa                  { width: 90px;  white-space: nowrap; }
 #result_list th.column-marca,
-#result_list td.field-marca          { width: 130px; }
+#result_list td.field-marca                  { width: 130px; }
 #result_list th.column-tipo_display,
-#result_list td.field-tipo_display   { width: 120px; white-space: nowrap; }
+#result_list td.field-tipo_display           { width: 120px; white-space: nowrap; }
 #result_list th.column-ano,
-#result_list td.field-ano            { width: 55px;  text-align: center; }
-#result_list th.column-classificacao,
-#result_list td.field-classificacao  { width: 110px; }
-#result_list th.column-situacao,
-#result_list td.field-situacao       { width: 90px; }
+#result_list td.field-ano                    { width: 55px;  text-align: center; }
+#result_list th.column-classificacao_display,
+#result_list td.field-classificacao_display  { width: 120px; }
+#result_list th.column-situacao_display,
+#result_list td.field-situacao_display       { width: 90px; }
 #result_list th.column-disponivel_display,
-#result_list td.field-disponivel_display { width: 110px; white-space: nowrap; }
+#result_list td.field-disponivel_display     { width: 110px; white-space: nowrap; }
 #result_list th.column-observacoes_curta,
-#result_list td.field-observacoes_curta  { min-width: 160px; }
+#result_list td.field-observacoes_curta      { min-width: 160px; }
+
+/* Linha inteira vermelha clara quando parada */
+#result_list tr.carreta-parada td {
+  background-color: #fee2e2 !important;
+}
+#result_list tr.carreta-parada:hover td {
+  background-color: #fecaca !important;
+}
 </style>
 {% endblock %}
 
@@ -69,4 +77,29 @@
 </div>
 {% endif %}
 {{ block.super }}
+{% endblock %}
+
+{% block extrajs %}
+{{ block.super }}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  // Identifica o índice da coluna Situação
+  var ths = document.querySelectorAll('#result_list thead th');
+  var sitIdx = -1;
+  ths.forEach(function (th, i) {
+    if (th.classList.contains('column-situacao_display')) sitIdx = i;
+  });
+  if (sitIdx < 0) return;
+
+  // Marca as linhas onde situação é "Parado" (ou contém fa-pause-circle)
+  document.querySelectorAll('#result_list tbody tr').forEach(function (tr) {
+    var tds = tr.querySelectorAll('td');
+    if (!tds[sitIdx]) return;
+    var cell = tds[sitIdx];
+    if (cell.querySelector('.fa-pause-circle') || cell.textContent.toLowerCase().includes('parad')) {
+      tr.classList.add('carreta-parada');
+    }
+  });
+});
+</script>
 {% endblock %}

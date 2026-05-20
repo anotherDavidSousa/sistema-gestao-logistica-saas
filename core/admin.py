@@ -184,14 +184,60 @@ class CavaloAdmin(admin.ModelAdmin):
             novo.save()
 
 
+class _CarretaClassificacaoFilter(admin.SimpleListFilter):
+    title = "Classificação"
+    parameter_name = "classificacao"
+
+    def lookups(self, request, model_admin):
+        return [
+            ("agregado",  "Agregamento"),
+            ("frota",     "Frota"),
+            ("terceiro",  "Terceiro"),
+        ]
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(classificacao=self.value())
+        return queryset
+
+    def choices(self, changelist):
+        # Substitui o label "All" por "Todas"
+        for choice in super().choices(changelist):
+            if choice["display"] == "All":
+                choice["display"] = "Todas"
+            yield choice
+
+
+class _CarretaSituacaoFilter(admin.SimpleListFilter):
+    title = "Situação"
+    parameter_name = "situacao"
+
+    def lookups(self, request, model_admin):
+        return [
+            ("ativo",   "Ativas"),
+            ("parado",  "Paradas"),
+        ]
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(situacao=self.value())
+        return queryset
+
+    def choices(self, changelist):
+        for choice in super().choices(changelist):
+            if choice["display"] == "All":
+                choice["display"] = "Todas"
+            yield choice
+
+
 class _CarretaDisponivelFilter(admin.SimpleListFilter):
-    title        = "Disponibilidade"
+    title = "Disponibilidade"
     parameter_name = "disponivel"
 
     def lookups(self, request, model_admin):
         return [
-            ("sim", "Disponíveis (agregamento sem cavalo)"),
-            ("nao", "Já agregadas (com cavalo vinculado)"),
+            ("sim", "Disponíveis (Agregamento)"),
+            ("nao", "Já Agregadas (Agregamento)"),
         ]
 
     def queryset(self, request, queryset):
@@ -207,23 +253,68 @@ class _CarretaDisponivelFilter(admin.SimpleListFilter):
             return qs.filter(pk__in=placas_usadas)
         return queryset
 
+    def choices(self, changelist):
+        for choice in super().choices(changelist):
+            if choice["display"] == "All":
+                choice["display"] = "Todas"
+            yield choice
+
 
 @admin.register(Carreta)
 class CarretaAdmin(admin.ModelAdmin):
     list_display   = (
         "placa", "marca", "tipo_display", "ano",
-        "classificacao", "situacao", "disponivel_display", "observacoes_curta",
+        "classificacao_display", "situacao_display",
+        "disponivel_display", "observacoes_curta",
     )
-    list_filter    = ("classificacao", "situacao", _CarretaDisponivelFilter)
+    list_filter    = (
+        _CarretaClassificacaoFilter,
+        _CarretaSituacaoFilter,
+        _CarretaDisponivelFilter,
+    )
     search_fields  = ("placa",)
     exclude        = ("cones", "localizador", "step", "local", "modelo")
     inlines        = [CarretaDocumentoInline]
     change_list_template = "admin/core/carreta/change_list.html"
 
+    # -- colunas --------------------------------------------------------------
+
     def tipo_display(self, obj):
         return obj.get_tipo_display() if obj.tipo else "—"
     tipo_display.short_description = "Tipo"
     tipo_display.admin_order_field = "tipo"
+
+    _CLASSIF_CORES = {
+        "agregado": ("#15803d", "#dcfce7"),   # verde
+        "frota":    ("#1e40af", "#dbeafe"),   # azul
+        "terceiro": ("#92400e", "#fef3c7"),   # laranja/âmbar
+    }
+
+    def classificacao_display(self, obj):
+        if not obj.classificacao:
+            return "—"
+        label = obj.get_classificacao_display() if hasattr(obj, "get_classificacao_display") else obj.classificacao.capitalize()
+        cor, bg = self._CLASSIF_CORES.get(obj.classificacao, ("#374151", "#f3f4f6"))
+        return format_html(
+            '<span style="color:{};background:{};font-weight:700;padding:2px 8px;'
+            'border-radius:20px;font-size:12px;">{}</span>',
+            cor, bg, label,
+        )
+    classificacao_display.short_description = "Classificação"
+    classificacao_display.admin_order_field = "classificacao"
+
+    def situacao_display(self, obj):
+        if not obj.situacao:
+            return "—"
+        label = obj.get_situacao_display() if hasattr(obj, "get_situacao_display") else obj.situacao.capitalize()
+        if obj.situacao == "parado":
+            return format_html(
+                '<span style="color:#991b1b;font-weight:700;">'
+                '<i class="fas fa-pause-circle"></i> {}</span>', label
+            )
+        return label
+    situacao_display.short_description = "Situação"
+    situacao_display.admin_order_field = "situacao"
 
     def disponivel_display(self, obj):
         if obj.classificacao != "agregado":
@@ -251,23 +342,42 @@ class CarretaAdmin(admin.ModelAdmin):
         return txt
     observacoes_curta.short_description = "Observações"
 
+    # -- busca: ignora filtros de queryset padrão ----------------------------
+
     def get_search_results(self, request, queryset, search_term):
         import re
         cleaned    = re.sub(r"[^\w\s]", " ", search_term).strip()
         tokens     = [t for t in cleaned.upper().split() if t not in _UFS_BR]
         normalized = " ".join(tokens) if tokens else cleaned
+        # Busca ativa: retorna em todo o conjunto sem restrição de disponibilidade
+        if normalized:
+            from django.db.models import Q as _Q
+            return (
+                Carreta.objects.filter(placa__icontains=normalized),
+                False,
+            )
         return super().get_search_results(request, queryset, normalized)
+
+    # -- queryset padrão: disponíveis ----------------------------------------
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
-        if "disponivel" not in request.GET:
-            from .models import Cavalo as _Cavalo
-            usadas_ids = set(
-                _Cavalo.objects.filter(carreta__isnull=False)
-                .values_list("carreta_id", flat=True)
-            )
-            return qs.filter(classificacao="agregado").exclude(pk__in=usadas_ids)
-        return qs
+        # Busca ativa: sem restrição
+        if request.GET.get("q", "").strip():
+            return qs
+        # Qualquer filtro explícito ativo: sem restrição de disponibilidade
+        explicit = {"disponivel", "classificacao", "situacao"}
+        if explicit & set(request.GET.keys()):
+            return qs
+        # Padrão: somente agregadas disponíveis
+        from .models import Cavalo as _Cavalo
+        usadas_ids = set(
+            _Cavalo.objects.filter(carreta__isnull=False)
+            .values_list("carreta_id", flat=True)
+        )
+        return qs.filter(classificacao="agregado").exclude(pk__in=usadas_ids)
+
+    # -- cards no topo -------------------------------------------------------
 
     def changelist_view(self, request, extra_context=None):
         from .models import Cavalo as _Cavalo
@@ -276,8 +386,8 @@ class CarretaAdmin(admin.ModelAdmin):
             _Cavalo.objects.filter(carreta__isnull=False)
             .values_list("carreta_id", flat=True)
         )
-        ja_agregadas  = Carreta.objects.filter(classificacao="agregado", pk__in=usadas_ids).count()
-        disponiveis   = total_agr - ja_agregadas
+        ja_agregadas = Carreta.objects.filter(classificacao="agregado", pk__in=usadas_ids).count()
+        disponiveis  = total_agr - ja_agregadas
         extra_context = extra_context or {}
         extra_context.update({
             "carreta_cards": {
