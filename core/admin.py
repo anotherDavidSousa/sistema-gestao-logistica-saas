@@ -371,6 +371,10 @@ class CarretaAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
+        # Nao filtra no change_view/delete_view -- apenas no changelist
+        url_name = getattr(request.resolver_match, "url_name", "")
+        if "changelist" not in url_name:
+            return qs
         # Busca ativa: sem restrição
         if request.GET.get("q", "").strip():
             return qs
