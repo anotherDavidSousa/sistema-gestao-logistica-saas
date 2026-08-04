@@ -1,0 +1,31 @@
+# Normalização de fim de linha do repositório.
+# Texto: git guarda em LF; no checkout, cada SO recebe o formato nativo.
+* text=auto eol=lf
+
+# Shell scripts SEMPRE em LF (quebram no Linux se forem CRLF)
+*.sh text eol=lf
+
+# Scripts batch/PowerShell do Windows em CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Binários — nunca mexer em fim de linha (evita corrupção)
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.gz binary
+*.xlsx binary
+*.xls binary
+*.pptx binary
+*.docx binary
+*.sqlite3 binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
